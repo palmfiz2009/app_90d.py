@@ -94,13 +94,13 @@ if 'init_90d_done' not in st.session_state:
     st.session_state['init_90d_done'] = True
     defaults = {
         "facility_name": "選択してください", "patient_id": "",
-        "eval_date_90": None, "vital_abnormality_90": None, "vital_detail_90": "",
+        "op_date_90": None, "eval_date_90": None, "vital_abnormality_90": None, "vital_detail_90": "",
         "wbc_90": None, "hb_90": None, "cre_90": None, "egfr_90": None, "crp_90": None,
         "cd_grade_90": "選択してください", "cd_detail_90": "",
         "adj_plan_90": "選択してください", "adj_other_90": "",
         "pfs_intra_status": None, "pfs_intra_site": [], "pfs_intra_tx": "未選択",
-        "pfs_recist_status": None, "pfs_recist_date": None, "pfs_recist_site": [], "pfs_recist_tx": "未選択",
-        "status_alive_90": None, "death_cause_90": "選択してください", "death_date_90": None,
+        "pfs_recist_status": None, "pfs_recist_date": None, "pfs_recist_site": [], "pfs_recist_tx": "未選択", "pfs_recist_tx_detail": "",
+        "status_alive_90": None, "final_visit_date_90": None, "death_cause_90": "選択してください", "death_date_90": None,
         "needs_confirm": False, "do_send": False
     }
     for k, v in defaults.items():
@@ -136,11 +136,16 @@ with tab1:
     st.markdown('<div class="juog-header">1. 身体所見・血液検査 (術後90日±14日)</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
+        st.session_state.op_date_90 = st.date_input("手術実施日*", value=st.session_state.op_date_90)
+        if st.session_state.op_date_90:
+            target_90 = st.session_state.op_date_90 + timedelta(days=90)
+            st.info(f"90日目目安: {target_90} (許容範囲: {target_90 - timedelta(days=14)} ～ {target_90 + timedelta(days=14)})")
+        
         st.session_state.eval_date_90 = st.date_input("評価実施日(来院日)*", value=st.session_state.eval_date_90)
         st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=None, horizontal=True)
         if st.session_state.vital_abnormality_90 == "異常あり": st.session_state.vital_detail_90 = st.text_input("異常の詳細*")
-        st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=None, step=1)
     with c2:
+        st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=None, step=1)
         st.session_state.hb_90 = st.number_input("Hb (g/dL)*", value=None, step=0.1)
         st.session_state.cre_90 = st.number_input("Cre (mg/dL)*", value=None, step=0.01)
         st.session_state.egfr_90 = st.number_input("eGFR (mL/min/1.73m²)*", value=None, step=0.1)
@@ -182,12 +187,16 @@ with tab3:
             st.session_state.pfs_recist_site = st.multiselect("再発部位", ["手術局所", "領域リンパ節", "遠隔リンパ節", "肺", "肝", "骨", "既存転移巣の増大", "その他"])
             tx_rec_opts = ["未選択", "薬剤変更・追加(adjuvant/2nd)", "EVP再開", "転移巣切除", "放射線治療", "その他"]
             st.session_state.pfs_recist_tx = st.selectbox("進行後の治療内容", tx_rec_opts)
+            if st.session_state.pfs_recist_tx == "薬剤変更・追加(adjuvant/2nd)":
+                st.session_state.pfs_recist_tx_detail = st.text_area("薬剤名・詳細なレジメン内容*", value=st.session_state.pfs_recist_tx_detail)
 
 with tab4:
     st.markdown('<div class="juog-header">4. 生存状況確認 (Overall Survival)</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         st.session_state.status_alive_90 = st.radio("生存状況 (術後90日時点)*", ["生存", "死亡"], index=None, horizontal=True)
+        if st.session_state.status_alive_90 == "生存":
+            st.session_state.final_visit_date_90 = st.date_input("最終生存確認日(最終来院日)*", value=st.session_state.final_visit_date_90)
     
     with c2:
         if st.session_state.status_alive_90 == "死亡":
@@ -203,12 +212,13 @@ with tab4:
         h_errors = []
         if st.session_state.facility_name == "選択してください": h_errors.append("・施設名")
         if not st.session_state.patient_id: h_errors.append("・識別コード")
-        if not st.session_state.eval_date_90: h_errors.append("・来院日")
+        if not st.session_state.op_date_90: h_errors.append("・手術実施日")
+        if not st.session_state.eval_date_90: h_errors.append("・評価来院日")
         if st.session_state.cd_grade_90 == "選択してください": h_errors.append("・CD分類")
-        if st.session_state.pfs_intra_status is None: h_errors.append("・尿路内再発の有無")
-        if st.session_state.pfs_recist_status is None: h_errors.append("・尿路外再発・進行の有無")
-        elif st.session_state.pfs_recist_status == "あり" and not st.session_state.pfs_recist_date: h_errors.append("・再発確定日")
+        if st.session_state.pfs_recist_status == "あり" and not st.session_state.pfs_recist_date: h_errors.append("・再発確定日")
+        if st.session_state.pfs_recist_tx == "薬剤変更・追加(adjuvant/2nd)" and not st.session_state.pfs_recist_tx_detail.strip(): h_errors.append("・薬剤変更の詳細内容")
         if st.session_state.status_alive_90 is None: h_errors.append("・生存状況")
+        elif st.session_state.status_alive_90 == "生存" and not st.session_state.final_visit_date_90: h_errors.append("・最終生存確認日")
         elif st.session_state.status_alive_90 == "死亡" and st.session_state.death_cause_90 == "選択してください": h_errors.append("・死因")
 
         if h_errors:
@@ -233,18 +243,18 @@ with tab4:
         rep = f"""
 【JUOG 90D CRF報告】
 施設: {st.session_state.facility_name} / ID: {st.session_state.patient_id}
-来院日: {st.session_state.eval_date_90}
+手術日: {st.session_state.op_date_90} / 来院日: {st.session_state.eval_date_90}
 
 血液: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}
 CD分類: {st.session_state.cd_grade_90} ({st.session_state.cd_detail_90})
-現在の治療: {st.session_state.adj_plan_90}
 
-【再発・進行評価】
-尿路内: {st.session_state.pfs_intra_status} (部位: {st.session_state.pfs_intra_site}, 治療: {st.session_state.pfs_intra_tx})
-尿路外: {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date}, 部位: {st.session_state.pfs_recist_site}, 治療: {st.session_state.pfs_recist_tx})
+再発評価:
+尿路内: {st.session_state.pfs_intra_status} (治療: {st.session_state.pfs_intra_tx})
+尿路外: {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date}, 治療詳細: {st.session_state.pfs_recist_tx_detail})
 
-【最終転帰】
-生存状況: {st.session_state.status_alive_90} / 死因: {st.session_state.death_cause_90} / 死亡日: {st.session_state.death_date_90}
+最終転帰:
+生存状況: {st.session_state.status_alive_90} (最終確認日: {st.session_state.final_visit_date_90})
+死因: {st.session_state.death_cause_90} / 死亡日: {st.session_state.death_date_90}
 """
         if send_email(rep, st.session_state.patient_id, st.session_state.facility_name):
             st.success("術後90日目のデータが正常に事務局へ送信されました。")
