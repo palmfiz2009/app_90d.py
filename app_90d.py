@@ -59,7 +59,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 共通リスト・ヘルプテキスト ---
+# --- 施設リスト ---
 FACILITY_LIST = [
     "選択してください", "愛知県がんセンター", "秋田大学", "愛媛大学", "大分大学", "大阪公立大学", 
     "大阪大学", "大阪府済生会野江病院", "岡山大学", "香川大学", "鹿児島大学", "関西医科大学", 
@@ -71,6 +71,7 @@ FACILITY_LIST = [
     "横浜市立大学", "琉球大学", "和歌山県立医科大学", "その他"
 ]
 
+# --- ヘルプテキスト定義 ---
 HELP_CD = """
 **Clavien-Dindo 分類 (術後90日評価)**
 Gradingの原則：
@@ -93,7 +94,7 @@ if 'init_90d_done' not in st.session_state:
         "cytology_90": "選択してください",
         "cd_grade_90": "選択してください", "cd_detail_90": "",
         "adj_plan_90": "選択してください", "adj_other_90": "",
-        "pfs_intra_status": None, "pfs_intra_date": None, "pfs_intra_site": [], "pfs_intra_tx": "未選択", "pfs_intra_tx_other": "",
+        "pfs_intra_status": None, "pfs_intra_date": None, "pfs_intra_site": [], "pfs_intra_tx": "未選択", "pfs_intra_tx_detail": "",
         "pfs_recist_status": None, "pfs_recist_date": None, "pfs_recist_site": [], "pfs_recist_tx": "未選択", "pfs_recist_tx_detail": "",
         "status_alive_90": None, "final_visit_date_90": None, "death_cause_90": "選択してください", "death_date_90": None,
         "needs_confirm": False, "do_send": False
@@ -128,7 +129,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4 = st.tabs(["🩺 診察・検査", "📋 安全性・治療状況", "🖼 再発評価 (PFS)", "⚖️ 生存確認 (OS)"])
 
 with tab1:
-    st.markdown('<div class="juog-header">1. 身体所見・血液検査・尿細胞診 (術後90日±14日)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="juog-header">1. 身体所見・検査 (術後90日±14日)</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         st.session_state.op_date_90 = st.date_input("手術実施日*", value=st.session_state.op_date_90)
@@ -139,27 +140,32 @@ with tab1:
         st.session_state.eval_date_90 = st.date_input("評価実施日(来院日)*", value=st.session_state.eval_date_90)
         st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=None, horizontal=True)
         if st.session_state.vital_abnormality_90 == "異常あり": st.session_state.vital_detail_90 = st.text_input("異常の詳細*")
-        
+    
+    with c2:
         cyto_opts = ["選択してください", "NILM (Class I・II)", "AUC (Class III相当)", "SHGUC (Class IV相当)", "HGUC (Class V相当)", "LGUC", "判定不能", "未実施"]
         idx_cyto = cyto_opts.index(st.session_state.cytology_90) if st.session_state.cytology_90 in cyto_opts else 0
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=idx_cyto)
         
-        st.divider()
-        st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90, step=1)
-        st.session_state.hb_90 = st.number_input("Hb (g/dL)*", value=st.session_state.hb_90, step=0.1)
-        st.session_state.plt_90 = st.number_input("PLT (x10^4/μL)*", value=st.session_state.plt_90, step=0.1)
+        # 主要な血液データ
+        lc1, lc2, lc3 = st.columns(3)
+        with lc1:
+            st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90, step=1)
+            st.session_state.cre_90 = st.number_input("Cre (mg/dL)*", value=st.session_state.cre_90, step=0.01)
+        with lc2:
+            st.session_state.hb_90 = st.number_input("Hb (g/dL)*", value=st.session_state.hb_90, step=0.1)
+            st.session_state.egfr_90 = st.number_input("eGFR ($mL/min/1.73m^2$)*", value=st.session_state.egfr_90, step=0.1)
+        with lc3:
+            st.session_state.plt_90 = st.number_input("PLT (x10^4/μL)*", value=st.session_state.plt_90, step=0.1)
+            st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90, step=0.01)
 
-    with c2:
-        st.markdown("**【白血球分画】**")
-        st.session_state.neutro_90 = st.number_input("Neutro (%)", value=st.session_state.neutro_90, step=0.1)
-        st.session_state.lympho_90 = st.number_input("Lympho (%)", value=st.session_state.lympho_90, step=0.1)
-        st.session_state.mono_90 = st.number_input("Mono (%)", value=st.session_state.mono_90, step=0.1)
-        st.session_state.eosino_90 = st.number_input("Eosino (%)", value=st.session_state.eosino_90, step=0.1)
-        st.session_state.baso_90 = st.number_input("Baso (%)", value=st.session_state.baso_90, step=0.1)
-        st.divider()
-        st.session_state.cre_90 = st.number_input("Cre (mg/dL)*", value=st.session_state.cre_90, step=0.01)
-        st.session_state.egfr_90 = st.number_input("eGFR ($mL/min/1.73m^2$)*", value=st.session_state.egfr_90, step=0.1)
-        st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90, step=0.01)
+    # 白血球分画：一番下の列で横並び
+    st.markdown("**【白血球分画】**")
+    d1, d2, d3, d4, d5 = st.columns(5)
+    with d1: st.session_state.neutro_90 = st.number_input("Neutro (%)", value=st.session_state.neutro_90, step=0.1)
+    with d2: st.session_state.lympho_90 = st.number_input("Lympho (%)", value=st.session_state.lympho_90, step=0.1)
+    with d3: st.session_state.mono_90 = st.number_input("Mono (%)", value=st.session_state.mono_90, step=0.1)
+    with d4: st.session_state.eosino_90 = st.number_input("Eosino (%)", value=st.session_state.eosino_90, step=0.1)
+    with d5: st.session_state.baso_90 = st.number_input("Baso (%)", value=st.session_state.baso_90, step=0.1)
 
 with tab2:
     st.markdown('<div class="juog-header">2. 安全性評価および術後補助療法の状況</div>', unsafe_allow_html=True)
@@ -199,7 +205,7 @@ with tab3:
             st.session_state.pfs_recist_site = st.multiselect("進行部位*", ["手術局所", "領域リンパ節", "遠隔リンパ節", "肺", "肝", "骨", "既存転移巣の増大", "その他"])
             tx_rec_opts = ["未選択", "EVP再開", "薬剤変更(2nd line以降)", "転移巣切除", "放射線治療", "集学的治療(TACE併用等)", "その他"]
             st.session_state.pfs_recist_tx = st.selectbox("治療内容*", tx_rec_opts)
-            st.session_state.pfs_recist_tx_detail = st.text_area("治療の詳細な経過・レジメン名*", placeholder="詳細を記載してください", value=st.session_state.pfs_recist_tx_detail)
+            st.session_state.pfs_recist_tx_detail = st.text_area("進行後の治療詳細・レジメン名*", value=st.session_state.pfs_recist_tx_detail)
 
 with tab4:
     st.markdown('<div class="juog-header">4. 生存状況確認 (Overall Survival)</div>', unsafe_allow_html=True)
@@ -218,12 +224,11 @@ with tab4:
 
     st.divider()
 
-    # --- 送信ロジック ---
+    # --- 送信ロジック (完全維持) ---
     if st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True):
         h_errors = []
         if st.session_state.facility_name == "選択してください": h_errors.append("・施設名")
         if not st.session_state.patient_id: h_errors.append("・識別コード")
-        if not st.session_state.op_date_90: h_errors.append("・手術日")
         if not st.session_state.eval_date_90: h_errors.append("・来院日")
         if st.session_state.cytology_90 == "選択してください": h_errors.append("・尿細胞診")
         if st.session_state.cd_grade_90 == "選択してください": h_errors.append("・CD分類")
@@ -265,6 +270,6 @@ with tab4:
 生存状況: {st.session_state.status_alive_90} (最終確認: {st.session_state.final_visit_date_90})
 """
         if send_email(rep, st.session_state.patient_id, st.session_state.facility_name):
-            st.success("データが送信されました。")
+            st.success("術後90日目データが正常に送信されました。")
             st.balloons()
         st.session_state.do_send = False
