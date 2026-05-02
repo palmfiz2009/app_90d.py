@@ -71,7 +71,7 @@ FACILITY_LIST = [
     "横浜市立大学", "琉球大学", "和歌山県立医科大学", "その他"
 ]
 
-# --- ヘルプテキスト (大元のしっかりバージョン) ---
+# --- ヘルプテキスト (詳細フルバージョン) ---
 HELP_CD = """
 **Clavien-Dindo 分類 (術後90日評価)**
 Gradingの原則：
@@ -155,7 +155,7 @@ with tab1:
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=idx_cyto)
 
     st.markdown("---")
-    # 採血レイアウト (image_b05429.png を完全維持)
+    # 採血レイアウト維持 (2カラム)
     bc1, bc2 = st.columns(2)
     with bc1:
         st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90, step=1)
@@ -170,7 +170,8 @@ with tab1:
         st.session_state.egfr_90 = st.number_input("eGFR (mL/min/1.73m²)*", value=st.session_state.egfr_90, step=0.1)
         st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90, step=0.01)
 
-    st.markdown("### 白血球分画 (%)")
+    # 白血球分画のデザイン調整
+    st.markdown('<p style="font-size:18px; font-weight:bold; margin-top:20px; margin-bottom:5px;">白血球分画 (%)</p>', unsafe_allow_html=True)
     d1, d2, d3, d4, d5 = st.columns(5)
     with d1: st.session_state.neutro_90 = st.number_input("Neutro*", value=st.session_state.neutro_90, step=0.1)
     with d2: st.session_state.lympho_90 = st.number_input("Lympho*", value=st.session_state.lympho_90, step=0.1)
@@ -184,7 +185,7 @@ with tab2:
     with c1:
         cd_opts = ["選択してください", "Grade 0", "Grade I", "Grade II", "Grade IIIa", "Grade IIIb", "Grade IVa", "Grade IVb", "Grade V"]
         idx_cd = cd_opts.index(st.session_state.cd_grade_90) if st.session_state.cd_grade_90 in cd_opts else 0
-        st.session_state.cd_grade_90 = st.selectbox("術後90日までの合併症 (CD分類)*", cd_opts, index=idx_cd, help=HELP_CD)
+        st.session_state.cd_grade_90 = st.selectbox("術後90日までの手術関連合併症 (CD分類)*", cd_opts, index=idx_cd, help=HELP_CD)
         if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
             st.session_state.cd_detail_90 = st.text_area("合併症の詳細内容*", value=st.session_state.cd_detail_90)
     with c2:
@@ -210,7 +211,7 @@ with tab3:
         if st.session_state.pfs_recist_status == "あり":
             st.session_state.pfs_recist_date = st.date_input("再発・進行確定日(PFSイベント日)*", value=st.session_state.pfs_recist_date)
             st.session_state.pfs_recist_site = st.multiselect("進行部位*", ["手術局所", "領域リンパ節", "遠隔リンパ節", "肺", "肝", "骨", "既存転移巣の増大", "その他"])
-            st.session_state.pfs_recist_tx = st.selectbox("治療内容*", ["未選択", "EVP再開", "薬剤変更", "転移巣切除", "放射線治療", "集学的治療(TACE併用等詳細を記載)", "その他"])
+            st.session_state.pfs_recist_tx = st.selectbox("治療内容*", ["未選択", "EVP再開", "薬剤変更", "転移巣切除", "放射線治療", "集学的治療", "その他"])
 
 with tab4:
     st.markdown('<div class="juog-header">4. 生存状況確認 (Overall Survival)</div>', unsafe_allow_html=True)
@@ -226,46 +227,47 @@ with tab4:
 
     st.divider()
 
-    # --- 送信ロジック (タブ4の末尾にのみ配置) ---
+    # --- 送信ロジック (論理整合性チェック強化) ---
     if st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True):
-        h_errors = [] # ハードエラー（論理矛盾・必須漏れ）
-        s_warnings = [] # ソフト警告（数値未入力）
+        h_errors = []  # ハードエラー (研究の根幹を揺るがすミス)
+        s_warnings = []  # ソフト警告 (臨床現場の状況で欠損しうる項目)
         d = st.session_state
 
-        # 1. 基本必須チェック
+        # 1. 必須基本情報
         if d.facility_name == "選択してください": h_errors.append("・施設名")
         if not d.patient_id: h_errors.append("・識別コード")
-        if not d.op_date_90: h_errors.append("・手術実施日")
-        if not d.eval_date_90: h_errors.append("・評価来院日")
-        if d.cytology_90 == "選択してください": h_errors.append("・尿細胞診")
+        if not d.op_date_90 or not d.eval_date_90: h_errors.append("・手術日および評価来院日")
         if d.cd_grade_90 == "選択してください": h_errors.append("・CD分類")
         if d.status_alive_90 is None: h_errors.append("・生存状況")
 
-        # 2. 論理整合性チェック
+        # 2. 研究用論理チェック (日付・生存矛盾)
         if d.op_date_90 and d.eval_date_90 and d.eval_date_90 < d.op_date_90:
-            h_errors.append("・評価来院日が手術日より前の日付になっています")
+            h_errors.append("・評価来院日が手術日より過去になっています")
         
         if d.status_alive_90 == "死亡":
-            if d.cd_grade_90 != "Grade V": h_errors.append("・生存状況が『死亡』の場合、CD分類は『Grade V』である必要があります")
+            if d.cd_grade_90 != "Grade V": h_errors.append("・死亡の場合、CD分類はGrade Vである必要があります")
             if d.death_cause_90 == "選択してください": h_errors.append("・死因を選択してください")
         elif d.status_alive_90 == "生存":
-            if d.cd_grade_90 == "Grade V": h_errors.append("・生存状況が『生存』ですが、CD分類が『Grade V（死亡）』になっています")
+            if d.cd_grade_90 == "Grade V": h_errors.append("・生存なのにCD分類がGrade Vになっています")
             if not d.final_visit_date_90: h_errors.append("・最終生存確認日を入力してください")
 
         if d.pfs_recist_status == "あり" and not d.pfs_recist_date:
-            h_errors.append("・再発・進行確定日を入力してください")
+            h_errors.append("・再発進行確定日を入力してください")
 
-        # 3. 数値入力の警告（ゼロまたは未入力）
+        # 3. 任意項目/警告項目 (細胞診および採血)
+        if d.cytology_90 == "選択してください": s_warnings.append("尿細胞診")
+        
+        # 採血項目の警告
         labs = {"WBC":d.wbc_90, "Hb":d.hb_90, "Cre":d.cre_90}
         for k, v in labs.items():
             if v is None or v == 0: s_warnings.append(k)
         
-        # 分画の合計チェック
+        # 分画合計チェック
         diff_total = (d.neutro_90 or 0) + (d.lympho_90 or 0) + (d.mono_90 or 0) + (d.eosino_90 or 0) + (d.baso_90 or 0)
         if diff_total > 0 and not (98.0 <= diff_total <= 102.0):
             s_warnings.append(f"白血球分画合計({diff_total:.1f}%)")
 
-        # エラー表示
+        # 判定
         if h_errors:
             st.error("以下の論理矛盾または未入力があります。修正してください：\n" + "\n".join(h_errors))
         elif s_warnings:
@@ -275,14 +277,14 @@ with tab4:
         else:
             st.session_state.do_send = True
 
-    # ソフト警告の確認
+    # ソフト警告の確認ダイアログ
     if st.session_state.needs_confirm:
-        st.warning(f"確認：以下の重要項目が未入力、または分画合計が不自然です ({', '.join(st.session_state.pending_s_warnings)})。このまま送信しますか？")
-        if st.button("⚠️ はい、確認しました。このまま送信します"):
+        st.warning(f"確認：以下の項目が未入力、または値が不自然です ({', '.join(st.session_state.pending_s_warnings)})。このまま送信しますか？")
+        if st.button("⚠️ はい、不備を承知で送信します"):
             st.session_state.do_send = True
             st.session_state.needs_confirm = False
 
-    # 実際のメール送信
+    # 最終送信処理
     if st.session_state.do_send:
         def f_val(v): return str(v) if v is not None else "N/A"
         rep = f"""
@@ -291,8 +293,7 @@ with tab4:
 手術日: {st.session_state.op_date_90} / 評価日: {st.session_state.eval_date_90}
 生存状況: {st.session_state.status_alive_90} (CD:{st.session_state.cd_grade_90})
 尿細胞診: {st.session_state.cytology_90}
-PFS(RECIST): {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date})
-主要血液: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}
+血液データ: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}
 """
         if send_email(rep, st.session_state.patient_id, st.session_state.facility_name):
             st.success("術後90日目データが正常に送信されました。")
