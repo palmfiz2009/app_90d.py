@@ -71,7 +71,7 @@ FACILITY_LIST = [
     "横浜市立大学", "琉球大学", "和歌山県立医科大学", "その他"
 ]
 
-# --- ヘルプテキスト (詳細版) ---
+# --- ヘルプテキスト (詳細版維持) ---
 HELP_CD = """
 **Clavien-Dindo 分類 (術後90日評価)**
 Gradingの原則：
@@ -92,15 +92,15 @@ Gradingの原則：
 - **Grade V**：患者の死亡
 """
 
-# --- セッション状態初期化 ---
+# --- セッション状態初期化 (デフォルト None) ---
 if 'init_90d_done' not in st.session_state:
     st.session_state['init_90d_done'] = True
     defaults = {
         "facility_name": "選択してください", "patient_id": "",
         "op_date_90": None, "eval_date_90": None, "vital_abnormality_90": None, "vital_detail_90": "",
-        "wbc_90": 0.0, "hb_90": 0.0, "plt_90": 0.0, "ast_90": 0.0, "alt_90": 0.0,
-        "ldh_90": 0.0, "alb_90": 0.0, "cre_90": 0.0, "egfr_90": 0.0, "crp_90": 0.0,
-        "neutro_90": 0.0, "lympho_90": 0.0, "mono_90": 0.0, "eosino_90": 0.0, "baso_90": 0.0,
+        "wbc_90": None, "hb_90": None, "plt_90": None, "ast_90": None, "alt_90": None,
+        "ldh_90": None, "alb_90": None, "cre_90": None, "egfr_90": None, "crp_90": None,
+        "neutro_90": None, "lympho_90": None, "mono_90": None, "eosino_90": None, "baso_90": None,
         "cytology_90": "選択してください",
         "cd_grade_90": "選択してください", "cd_detail_90": "",
         "adj_plan_90": "選択してください", "adj_other_90": "",
@@ -155,6 +155,7 @@ with tab1:
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=idx_cyto)
 
     st.markdown("---")
+    # 採血レイアウト維持 (デフォルト空欄)
     bc1, bc2 = st.columns(2)
     with bc1:
         st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90, step=1.0)
@@ -201,7 +202,7 @@ with tab3:
         st.session_state.pfs_intra_status = st.radio("尿路内再発の有無 (膀胱・対側上部尿路)*", ["なし", "あり"], index=None, horizontal=True)
         if st.session_state.pfs_intra_status == "あり":
             st.session_state.pfs_intra_date = st.date_input("尿路内再発確定日*", value=st.session_state.pfs_intra_date)
-            st.session_state.pfs_intra_site = st.multiselect("部位*", ["膀胱内", "対側尿管", "対側腎盂", "尿道"])
+            st.session_state.pfs_intra_site = st.multiselect("部位", ["膀胱内", "対側尿管", "対側腎盂", "尿道"])
             st.session_state.pfs_intra_tx = st.selectbox("尿路内再発に対する治療内容*", ["未選択", "TURBT", "内視鏡的焼灼術", "注入療法", "温存療法", "経過観察", "その他"])
     with c2:
         st.subheader("【尿路外再発・進行】")
@@ -227,69 +228,57 @@ with tab4:
 
     # --- 送信ロジック ---
     if st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True):
-        h_errors = [] # ハードエラー（解析不能レベル）
-        s_warnings = [] # ソフト警告（現場判断）
+        h_errors = [] # ハードエラー（統計破綻）
+        s_warnings = [] # ソフト警告（臨床的欠損/許容）
         d = st.session_state
 
-        # 1. 必須基本情報チェック
+        # 1. 必須基本情報
         if d.facility_name == "選択してください": h_errors.append("・施設名")
         if not d.patient_id: h_errors.append("・識別コード")
         if not d.op_date_90: h_errors.append("・手術実施日")
         if not d.eval_date_90: h_errors.append("・評価来院日")
-        if d.vital_abnormality_90 is None: h_errors.append("・身体所見（異常の有無）")
         if d.cd_grade_90 == "選択してください": h_errors.append("・CD分類")
         if d.status_alive_90 is None: h_errors.append("・生存状況")
 
-        # 2. 研究用時間軸・論理整合性チェック
+        # 2. 論理整合性チェック (時間軸)
         if d.op_date_90:
-            # 90日窓チェック (ソフト警告)
+            if d.eval_date_90 and d.eval_date_90 < d.op_date_90: h_errors.append("・評価来院日が手術日より過去です")
+            if d.pfs_intra_status == "あり" and d.pfs_intra_date and d.pfs_intra_date < d.op_date_90: h_errors.append("・尿路内再発日が手術日より過去です")
+            if d.pfs_recist_status == "あり" and d.pfs_recist_date and d.pfs_recist_date < d.op_date_90: h_errors.append("・尿路外進行日が手術日より過去です")
+            if d.status_alive_90 == "死亡" and d.death_date_90 and d.death_date_90 < d.op_date_90: h_errors.append("・死亡日が手術日より過去です")
+            
+            # 90日窓チェック (ソフト警告に緩和)
             target = d.op_date_90 + timedelta(days=90)
             if d.eval_date_90 and not (target - timedelta(days=14) <= d.eval_date_90 <= target + timedelta(days=14)):
                 s_warnings.append(f"評価日が術後90日窓外（規定：{target-timedelta(days=14)}〜{target+timedelta(days=14)}）")
-            
-            # 日付の順序チェック (ハードエラー)
-            if d.eval_date_90 and d.eval_date_90 < d.op_date_90: h_errors.append("・評価日が手術日より前です")
-            if d.pfs_intra_status == "あり" and d.pfs_intra_date and d.pfs_intra_date < d.op_date_90: h_errors.append("・尿路内再発日が手術日より前です")
-            if d.pfs_recist_status == "あり" and d.pfs_recist_date and d.pfs_recist_date < d.op_date_90: h_errors.append("・尿路外進行日が手術日より前です")
-            if d.status_alive_90 == "死亡" and d.death_date_90 and d.death_date_90 < d.op_date_90: h_errors.append("・死亡日が手術日より前です")
 
         # 3. 生存×CD分類整合性
         if d.status_alive_90 == "死亡":
             if d.cd_grade_90 != "Grade V": h_errors.append("・死亡なのにCD分類がGrade V以外です")
             if d.death_cause_90 == "選択してください": h_errors.append("・死因未選択")
         elif d.status_alive_90 == "生存":
-            if d.cd_grade_90 == "Grade V": h_errors.append("・生存なのにCD分類がGrade Vです")
-            if not d.final_visit_date_90: h_errors.append("・最終生存確認日（最終来院日）")
+            if d.cd_grade_90 == "Grade V": h_errors.append("・生存なのにCD分類がGrade Vになっています")
+            if not d.final_visit_date_90: h_errors.append("・最終生存確認日を入力してください")
 
-        # 4. PFS論理チェック
-        if d.pfs_intra_status == "あり":
-            if not d.pfs_intra_date: h_errors.append("・尿路内再発日")
-            if not d.pfs_intra_site: h_errors.append("・尿路内再発部位")
-            if d.pfs_intra_tx == "未選択": h_errors.append("・尿路内再発治療")
+        # 4. ソフト警告（緩和項目）
+        if d.vital_abnormality_90 is None: s_warnings.append("身体所見（異常の有無）")
+        if d.cytology_90 == "選択してください": s_warnings.append("尿細胞診結果")
         
-        if d.pfs_recist_status == "あり":
-            if not d.pfs_recist_date: h_errors.append("・尿路外進行日")
-            if not d.pfs_recist_site: h_errors.append("・尿路外進行部位")
-            if d.pfs_recist_tx == "未選択": h_errors.append("・尿路外進行治療")
-
-        # 5. 警告項目（細胞診・採血）
-        if d.cytology_90 == "選択してください": s_warnings.append("尿細胞診")
-        
-        # 採血 0チェック (CRP以外)
+        # 採血項目の警告 (Noneを検知)
         imp_labs = {"WBC":d.wbc_90, "Hb":d.hb_90, "PLT":d.plt_90, "Cre":d.cre_90}
         for k, v in imp_labs.items():
-            if v == 0.0: s_warnings.append(k)
+            if v is None: s_warnings.append(k)
         
         # 分画合計チェック
         diff_sum = (d.neutro_90 or 0) + (d.lympho_90 or 0) + (d.mono_90 or 0) + (d.eosino_90 or 0) + (d.baso_90 or 0)
         if diff_sum > 0 and not (98.0 <= diff_sum <= 102.0):
             s_warnings.append(f"白血球分画合計({diff_sum:.1f}%)")
         elif diff_sum == 0.0:
-            s_warnings.append("白血球分画未入力")
+            s_warnings.append("白血球分画")
 
-        # --- 判定 ---
+        # --- 送信判断 ---
         if h_errors:
-            st.error("以下の論理矛盾または必須漏れがあります。修正してください：\n" + "\n".join(h_errors))
+            st.error("以下の論理矛盾または必須情報漏れがあります。修正してください：\n" + "\n".join(h_errors))
         elif s_warnings:
             st.session_state.needs_confirm = True
             st.session_state.pending_s_warnings = s_warnings
@@ -297,24 +286,22 @@ with tab4:
         else:
             st.session_state.do_send = True
 
-    # 警告ダイアログ
+    # 警告確認ダイアログ
     if st.session_state.needs_confirm:
         st.warning(f"確認：以下の項目が未入力、または規定範囲外です ({', '.join(st.session_state.pending_s_warnings)})。このまま送信しますか？")
         if st.button("⚠️ はい、不備を承知で送信します"):
             st.session_state.do_send = True
             st.session_state.needs_confirm = False
 
-    # メール送信
+    # 最終送信
     if st.session_state.do_send:
-        def f_val(v): return str(v) if v != 0.0 else "N/A"
+        def f_val(v): return str(v) if v is not None else "N/A"
         rep = f"""
 【JUOG 90D CRF報告】
 施設: {st.session_state.facility_name} / ID: {st.session_state.patient_id}
 手術日: {st.session_state.op_date_90} / 評価日: {st.session_state.eval_date_90}
-生存状況: {st.session_state.status_alive_90} (CD:{st.session_state.cd_grade_90})
-尿細胞診: {st.session_state.cytology_90}
-PFS(RECIST): {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date})
-血液データ: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}, CRP:{st.session_state.crp_90}
+生存: {st.session_state.status_alive_90} (CD:{st.session_state.cd_grade_90})
+主要採血: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}
 """
         if send_email(rep, st.session_state.patient_id, st.session_state.facility_name):
             st.success("術後90日目データが正常に送信されました。")
