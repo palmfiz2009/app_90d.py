@@ -73,23 +73,23 @@ FACILITY_LIST = [
 
 # --- ヘルプテキスト (詳細版) ---
 HELP_CD = """
-**Clavien-Dindo 分類 (術後90日評価)**[cite: 1]
+**Clavien-Dindo 分類 (術後90日評価)**
 Gradingの原則：
 
 - **Grade I**：正常な術後経過からの逸脱で、薬物療法、または外科的治療、内視鏡的治療、IVR 治療を要さないもの。
-ただし、制吐剤、解熱剤、鎮痛剤、利尿剤による治療、電解質補充、理学療法は必要とする治療には含めない。また、ベッドサイドでの創感染の開放は Grade I とする。[cite: 1]
+ただし、制吐剤、解熱剤、鎮痛剤、利尿剤による治療、電解質補充、理学療法は必要とする治療には含めない。また、ベッドサイドでの創感染の開放は Grade I とする。
 
-- **Grade II**：制吐剤、解熱剤、鎮痛剤、利尿剤以外の薬物療法を要する。輸血および中心静脈栄養を要する場合を含む。[cite: 1]
+- **Grade II**：制吐剤、解熱剤、鎮痛剤、利尿剤以外の薬物療法を要する。輸血および中心静脈栄養を要する場合を含む。
 
-- **Grade III**：外科的治療、内視鏡的治療、IVR 治療を要する。[cite: 1]
-    - **Grade IIIa**：全身麻酔を要さない治療[cite: 1]
-    - **Grade IIIb**：全身麻酔下での治療[cite: 1]
+- **Grade III**：外科的治療、内視鏡的治療、IVR 治療を要する。
+    - **Grade IIIa**：全身麻酔を要さない治療
+    - **Grade IIIb**：全身麻酔下での治療
 
-- **Grade IV**：ICU 管理を要する、生命を脅かす合併症（中枢神経系の合併症を含む）[cite: 1]
-    - **Grade IVa**：単一の臓器不全（透析を含む）[cite: 1]
-    - **Grade IVb**：多臓器不全[cite: 1]
+- **Grade IV**：ICU 管理を要する、生命を脅かす合併症（中枢神経系の合併症を含む）
+    - **Grade IVa**：単一の臓器不全（透析を含む）
+    - **Grade IVb**：多臓器不全
 
-- **Grade V**：患者の死亡[cite: 1]
+- **Grade V**：患者の死亡
 """
 
 # --- セッション状態初期化 ---
@@ -148,7 +148,7 @@ with tab1:
         st.session_state.op_date_90 = st.date_input("手術実施日*", value=st.session_state.op_date_90)
         if st.session_state.op_date_90:
             target_90 = st.session_state.op_date_90 + timedelta(days=90)
-            st.info(f"90日目目安: {target_90} (許容範囲: {target_90 - timedelta(days=14)} ～ {target_90 + timedelta(days=14)})")[cite: 1]
+            st.info(f"90日目目安: {target_90} (許容範囲: {target_90 - timedelta(days=14)} ～ {target_90 + timedelta(days=14)})")
         
         st.session_state.eval_date_90 = st.date_input("評価実施日(来院日)*", value=st.session_state.eval_date_90)
         st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=None, horizontal=True)
@@ -159,7 +159,7 @@ with tab1:
         idx_cyto = cyto_opts.index(st.session_state.cytology_90) if st.session_state.cytology_90 in cyto_opts else 0
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=idx_cyto)
         
-        st.markdown("**【血液検査データ】**")[cite: 1]
+        st.markdown("**【血液検査データ】**")
         # Row 1
         r1c1, r1c2, r1c3 = st.columns(3)
         with r1c1: st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=None, step=1)
@@ -186,7 +186,7 @@ with tab1:
         with r5c2: st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=None, step=0.01)
 
     # 白血球分画：横並び配置
-    st.markdown('<p style="font-size:14px; font-weight:bold; margin-top:15px; margin-bottom:0px;">【白血球分画】</p>', unsafe_allow_html=True)[cite: 1]
+    st.markdown('<p style="font-size:14px; font-weight:bold; margin-top:15px; margin-bottom:0px;">【白血球分画】</p>', unsafe_allow_html=True)
     d1, d2, d3, d4, d5 = st.columns(5)
     with d1: st.session_state.neutro_90 = st.number_input("Neutro (%)", value=None, step=0.1)
     with d2: st.session_state.lympho_90 = st.number_input("Lympho (%)", value=None, step=0.1)
@@ -267,7 +267,7 @@ with tab4:
         if h_errors:
             st.error("以下の項目を入力してください：\n" + "\n".join(h_errors))
         else:
-            # 必須項目のチェック (電解質以外)
+            # 必須項目のチェック (主要項目のみ)
             s_errors = [k for k, v in {"WBC":st.session_state.wbc_90, "Hb":st.session_state.hb_90, "PLT":st.session_state.plt_90, "AST":st.session_state.ast_90, "ALT":st.session_state.alt_90, "Cre":st.session_state.cre_90}.items() if v is None]
             if s_errors:
                 st.session_state.needs_confirm = True
@@ -290,8 +290,10 @@ with tab4:
 評価日: {st.session_state.eval_date_90}
 
 尿細胞診: {st.session_state.cytology_90}
-主要血液: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}
+主要血液: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, PLT:{f_val(st.session_state.plt_90)}, Cre:{f_val(st.session_state.cre_90)}
 安全性: {st.session_state.cd_grade_90} ({st.session_state.cd_detail_90})
+再発(尿路内): {st.session_state.pfs_intra_status} (部位: {st.session_state.pfs_intra_site})
+再発(尿路外): {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date})
 生存状況: {st.session_state.status_alive_90} (最終確認: {st.session_state.final_visit_date_90})
 """
         if send_email(rep, st.session_state.patient_id, st.session_state.facility_name):
