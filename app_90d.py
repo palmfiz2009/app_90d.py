@@ -59,7 +59,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 共通リスト・ヘルプテキスト (詳細版復元) ---
+# --- 施設リスト ---
 FACILITY_LIST = [
     "選択してください", "愛知県がんセンター", "秋田大学", "愛媛大学", "大分大学", "大阪公立大学", 
     "大阪大学", "大阪府済生会野江病院", "岡山大学", "香川大学", "鹿児島大学", "関西医科大学", 
@@ -71,8 +71,10 @@ FACILITY_LIST = [
     "横浜市立大学", "琉球大学", "和歌山県立医科大学", "その他"
 ]
 
+# --- ヘルプテキスト (詳細版) ---
 HELP_CD = """
-**Clavien-Dindo 分類 (Gradingの原則)**[cite: 1]
+**Clavien-Dindo 分類 (術後90日評価)**[cite: 1]
+Gradingの原則：
 
 - **Grade I**：正常な術後経過からの逸脱で、薬物療法、または外科的治療、内視鏡的治療、IVR 治療を要さないもの。
 ただし、制吐剤、解熱剤、鎮痛剤、利尿剤による治療、電解質補充、理学療法は必要とする治療には含めない。また、ベッドサイドでの創感染の開放は Grade I とする。[cite: 1]
@@ -97,12 +99,15 @@ if 'init_90d_done' not in st.session_state:
         "facility_name": "選択してください", "patient_id": "",
         "op_date_90": None, "eval_date_90": None, "vital_abnormality_90": None, "vital_detail_90": "",
         "wbc_90": None, "hb_90": None, "plt_90": None,
+        "ast_90": None, "alt_90": None, "ldh_90": None,
+        "alp_90": None, "tbil_90": None, "alb_90": None,
+        "tp_90": None, "bun_90": None, "cre_90": None,
+        "egfr_90": None, "crp_90": None,
         "neutro_90": None, "lympho_90": None, "mono_90": None, "eosino_90": None, "baso_90": None,
-        "cre_90": None, "egfr_90": None, "crp_90": None,
         "cytology_90": "選択してください",
         "cd_grade_90": "選択してください", "cd_detail_90": "",
         "adj_plan_90": "選択してください", "adj_other_90": "",
-        "pfs_intra_status": None, "pfs_intra_date": None, "pfs_intra_site": [], "pfs_intra_tx": "未選択", "pfs_intra_tx_other": "",
+        "pfs_intra_status": None, "pfs_intra_date": None, "pfs_intra_site": [], "pfs_intra_tx": "未選択", "pfs_intra_tx_detail": "",
         "pfs_recist_status": None, "pfs_recist_date": None, "pfs_recist_site": [], "pfs_recist_tx": "未選択", "pfs_recist_tx_detail": "",
         "status_alive_90": None, "final_visit_date_90": None, "death_cause_90": "選択してください", "death_date_90": None,
         "needs_confirm": False, "do_send": False
@@ -154,26 +159,40 @@ with tab1:
         idx_cyto = cyto_opts.index(st.session_state.cytology_90) if st.session_state.cytology_90 in cyto_opts else 0
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=idx_cyto)
         
-        # 主要な血液データ (段ズレ解消済み)
-        st.markdown("**【血液検査データ】**")
+        st.markdown("**【血液検査データ】**")[cite: 1]
+        # Row 1
         r1c1, r1c2, r1c3 = st.columns(3)
-        with r1c1: st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90, step=1)
-        with r1c2: st.session_state.hb_90 = st.number_input("Hb (g/dL)*", value=st.session_state.hb_90, step=0.1)
-        with r1c3: st.session_state.plt_90 = st.number_input("PLT (x10^4/μL)*", value=st.session_state.plt_90, step=0.1)
-        
+        with r1c1: st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=None, step=1)
+        with r1c2: st.session_state.hb_90 = st.number_input("Hb (g/dL)*", value=None, step=0.1)
+        with r1c3: st.session_state.plt_90 = st.number_input("PLT (x10^4/μL)*", value=None, step=0.1)
+        # Row 2
         r2c1, r2c2, r2c3 = st.columns(3)
-        with r2c1: st.session_state.cre_90 = st.number_input("Cre (mg/dL)*", value=st.session_state.cre_90, step=0.01)
-        with r2c2: st.session_state.egfr_90 = st.number_input("eGFR (mL/min/1.73m2)*", value=st.session_state.egfr_90, step=0.1)
-        with r2c3: st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90, step=0.01)
+        with r2c1: st.session_state.ast_90 = st.number_input("AST (U/L)*", value=None, step=1)
+        with r2c2: st.session_state.alt_90 = st.number_input("ALT (U/L)*", value=None, step=1)
+        with r2c3: st.session_state.ldh_90 = st.number_input("LDH (U/L)*", value=None, step=1)
+        # Row 3
+        r3c1, r3c2, r3c3 = st.columns(3)
+        with r3c1: st.session_state.alp_90 = st.number_input("ALP (U/L)*", value=None, step=1)
+        with r3c2: st.session_state.tbil_90 = st.number_input("総ビリルビン (mg/dL)*", value=None, step=0.1)
+        with r3c3: st.session_state.alb_90 = st.number_input("アルブミン (g/dL)*", value=None, step=0.1)
+        # Row 4
+        r4c1, r4c2, r4c3 = st.columns(3)
+        with r4c1: st.session_state.tp_90 = st.number_input("総蛋白 (g/dL)*", value=None, step=0.1)
+        with r4c2: st.session_state.bun_90 = st.number_input("BUN (mg/dL)*", value=None, step=0.1)
+        with r4c3: st.session_state.cre_90 = st.number_input("Cre (mg/dL)*", value=None, step=0.01)
+        # Row 5
+        r5c1, r5c2, r5c3 = st.columns(3)
+        with r5c1: st.session_state.egfr_90 = st.number_input("eGFR (mL/min/1.73m2)*", value=None, step=0.1)
+        with r5c2: st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=None, step=0.01)
 
-    # 白血球分画：フォントサイズ統合・横並び配置
-    st.markdown('<p style="font-size:14px; font-weight:bold; margin-top:15px; margin-bottom:0px;">【白血球分画】</p>', unsafe_allow_html=True)
+    # 白血球分画：横並び配置
+    st.markdown('<p style="font-size:14px; font-weight:bold; margin-top:15px; margin-bottom:0px;">【白血球分画】</p>', unsafe_allow_html=True)[cite: 1]
     d1, d2, d3, d4, d5 = st.columns(5)
-    with d1: st.session_state.neutro_90 = st.number_input("Neutro (%)", value=st.session_state.neutro_90, step=0.1)
-    with d2: st.session_state.lympho_90 = st.number_input("Lympho (%)", value=st.session_state.lympho_90, step=0.1)
-    with d3: st.session_state.mono_90 = st.number_input("Mono (%)", value=st.session_state.mono_90, step=0.1)
-    with d4: st.session_state.eosino_90 = st.number_input("Eosino (%)", value=st.session_state.eosino_90, step=0.1)
-    with d5: st.session_state.baso_90 = st.number_input("Baso (%)", value=st.session_state.baso_90, step=0.1)
+    with d1: st.session_state.neutro_90 = st.number_input("Neutro (%)", value=None, step=0.1)
+    with d2: st.session_state.lympho_90 = st.number_input("Lympho (%)", value=None, step=0.1)
+    with d3: st.session_state.mono_90 = st.number_input("Mono (%)", value=None, step=0.1)
+    with d4: st.session_state.eosino_90 = st.number_input("Eosino (%)", value=None, step=0.1)
+    with d5: st.session_state.baso_90 = st.number_input("Baso (%)", value=None, step=0.1)
 
 with tab2:
     st.markdown('<div class="juog-header">2. 安全性評価および術後補助療法の状況</div>', unsafe_allow_html=True)
@@ -200,11 +219,10 @@ with tab3:
         st.session_state.pfs_intra_status = st.radio("尿路内再発の有無 (膀胱・対側上部尿路)*", ["なし", "あり"], index=None, horizontal=True)
         if st.session_state.pfs_intra_status == "あり":
             st.session_state.pfs_intra_date = st.date_input("尿路内再発確定日*", value=st.session_state.pfs_intra_date)
-            # 部位を分離
             st.session_state.pfs_intra_site = st.multiselect("部位", ["膀胱内", "対側尿管", "対側腎盂", "尿道"])
             tx_intra_opts = ["未選択", "TURBT", "内視鏡的焼灼術(レーザー等)", "注入療法(BCG等)", "温存療法", "経過観察", "その他"]
             st.session_state.pfs_intra_tx = st.selectbox("尿路内再発に対する治療内容*", tx_intra_opts)
-            st.session_state.pfs_intra_tx_detail = st.text_input("治療の具体的経過 (例: 1/20 TURBT施行など)")
+            st.session_state.pfs_intra_tx_detail = st.text_input("治療の具体的経過")
 
     with c2:
         st.subheader("【尿路外再発・進行】")
@@ -212,8 +230,6 @@ with tab3:
         if st.session_state.pfs_recist_status == "あり":
             st.session_state.pfs_recist_date = st.date_input("再発・進行確定日(PFSイベント日)*", value=st.session_state.pfs_recist_date)
             st.session_state.pfs_recist_site = st.multiselect("進行部位*", ["手術局所", "領域リンパ節", "遠隔リンパ節", "肺", "肝", "骨", "既存転移巣の増大", "その他"])
-            
-            st.markdown("**進行後の主たる治療戦略**")
             tx_rec_opts = ["未選択", "EVP再開", "薬剤変更(2nd line以降)", "転移巣切除", "放射線治療", "集学的治療(TACE併用等詳細を記載)", "その他"]
             st.session_state.pfs_recist_tx = st.selectbox("治療内容*", tx_rec_opts)
             st.session_state.pfs_recist_tx_detail = st.text_area("進行後の治療詳細・レジメン名*", value=st.session_state.pfs_recist_tx_detail)
@@ -251,7 +267,8 @@ with tab4:
         if h_errors:
             st.error("以下の項目を入力してください：\n" + "\n".join(h_errors))
         else:
-            s_errors = [k for k, v in {"WBC":st.session_state.wbc_90, "Hb":st.session_state.hb_90, "PLT":st.session_state.plt_90, "Cre":st.session_state.cre_90}.items() if v is None]
+            # 必須項目のチェック (電解質以外)
+            s_errors = [k for k, v in {"WBC":st.session_state.wbc_90, "Hb":st.session_state.hb_90, "PLT":st.session_state.plt_90, "AST":st.session_state.ast_90, "ALT":st.session_state.alt_90, "Cre":st.session_state.cre_90}.items() if v is None]
             if s_errors:
                 st.session_state.needs_confirm = True
                 st.session_state.pending_s_errors = s_errors
@@ -260,7 +277,7 @@ with tab4:
                 st.session_state.do_send = True
 
     if st.session_state.needs_confirm:
-        st.warning(f"確認：血液データが空です ({', '.join(st.session_state.pending_s_errors)})。送信しますか？")
+        st.warning(f"確認：重要採血項目が空です ({', '.join(st.session_state.pending_s_errors)})。送信しますか？")
         if st.button("⚠️ はい、不足を承知で送信します"):
             st.session_state.do_send = True
             st.session_state.needs_confirm = False
@@ -270,15 +287,11 @@ with tab4:
         rep = f"""
 【JUOG 90D CRF報告】
 施設: {st.session_state.facility_name} / ID: {st.session_state.patient_id}
-手術日: {st.session_state.op_date_90} / 評価日: {st.session_state.eval_date_90}
+評価日: {st.session_state.eval_date_90}
 
 尿細胞診: {st.session_state.cytology_90}
-血液: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, PLT:{f_val(st.session_state.plt_90)}, Cre:{f_val(st.session_state.cre_90)}
-分画: Neutro:{f_val(st.session_state.neutro_90)}%, Lympho:{f_val(st.session_state.lympho_90)}%, Mono:{f_val(st.session_state.mono_90)}%
-
+主要血液: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}
 安全性: {st.session_state.cd_grade_90} ({st.session_state.cd_detail_90})
-再発(尿路内): {st.session_state.pfs_intra_status} (部位: {st.session_state.pfs_intra_site}, 確定日: {st.session_state.pfs_intra_date})
-再発(尿路外): {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date})
 生存状況: {st.session_state.status_alive_90} (最終確認: {st.session_state.final_visit_date_90})
 """
         if send_email(rep, st.session_state.patient_id, st.session_state.facility_name):
