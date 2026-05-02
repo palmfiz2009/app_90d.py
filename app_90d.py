@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 # --- ページ設定 ---
 st.set_page_config(page_title="JUOG UTUC_Consolidative 90-Day CRF", layout="wide")
 
-# --- JUOG専用デザインCSS (完全維持) ---
+# --- JUOG専用デザインCSS (画像に基づき余白を調整) ---
 st.markdown("""
     <style>
     header[data-testid="stHeader"] { visibility: hidden; }
@@ -23,7 +23,7 @@ st.markdown("""
         color: #0F172A; 
         text-align: center; 
         margin-top: 0px !important; 
-        margin-bottom: 30px !important; 
+        margin-bottom: 80px !important; /* 表題と下の間隔を広く確保 */
         font-weight: 800; 
         height: 40px;
     }
@@ -71,7 +71,7 @@ FACILITY_LIST = [
     "横浜市立大学", "琉球大学", "和歌山県立医科大学", "その他"
 ]
 
-# --- ヘルプテキスト (詳細版維持) ---
+# --- ヘルプテキスト (詳細フルバージョン) ---
 HELP_CD = """
 **Clavien-Dindo 分類 (術後90日評価)**
 Gradingの原則：
@@ -92,7 +92,7 @@ Gradingの原則：
 - **Grade V**：患者の死亡
 """
 
-# --- セッション状態初期化 (デフォルト None) ---
+# --- セッション状態初期化 (採血項目は None) ---
 if 'init_90d_done' not in st.session_state:
     st.session_state['init_90d_done'] = True
     defaults = {
@@ -170,6 +170,7 @@ with tab1:
         st.session_state.egfr_90 = st.number_input("eGFR (mL/min/1.73m²)*", value=st.session_state.egfr_90, step=0.1)
         st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90, step=0.01)
 
+    # 白血球分画のデザイン調整
     st.markdown('<p style="font-size:18px; font-weight:bold; margin-top:20px; margin-bottom:5px;">白血球分画 (%)</p>', unsafe_allow_html=True)
     d1, d2, d3, d4, d5 = st.columns(5)
     with d1: st.session_state.neutro_90 = st.number_input("Neutro*", value=st.session_state.neutro_90, step=0.1)
@@ -184,7 +185,7 @@ with tab2:
     with c1:
         cd_opts = ["選択してください", "Grade 0", "Grade I", "Grade II", "Grade IIIa", "Grade IIIb", "Grade IVa", "Grade IVb", "Grade V"]
         idx_cd = cd_opts.index(st.session_state.cd_grade_90) if st.session_state.cd_grade_90 in cd_opts else 0
-        st.session_state.cd_grade_90 = st.selectbox("術後90日までの合併症 (CD分類)*", cd_opts, index=idx_cd, help=HELP_CD)
+        st.session_state.cd_grade_90 = st.selectbox("術後90日までの手術関連合併症 (CD分類)*", cd_opts, index=idx_cd, help=HELP_CD)
         if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
             st.session_state.cd_detail_90 = st.text_area("合併症の詳細内容*", value=st.session_state.cd_detail_90)
     with c2:
@@ -247,7 +248,7 @@ with tab4:
             if d.pfs_recist_status == "あり" and d.pfs_recist_date and d.pfs_recist_date < d.op_date_90: h_errors.append("・尿路外進行日が手術日より過去です")
             if d.status_alive_90 == "死亡" and d.death_date_90 and d.death_date_90 < d.op_date_90: h_errors.append("・死亡日が手術日より過去です")
             
-            # 90日窓チェック (ソフト警告に緩和)
+            # 90日窓チェック (ソフト警告)
             target = d.op_date_90 + timedelta(days=90)
             if d.eval_date_90 and not (target - timedelta(days=14) <= d.eval_date_90 <= target + timedelta(days=14)):
                 s_warnings.append(f"評価日が術後90日窓外（規定：{target-timedelta(days=14)}〜{target+timedelta(days=14)}）")
