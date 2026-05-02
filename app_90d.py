@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # --- ページ設定 ---
-st.set_page_config(page_title="JUOG UTUC_Trial 90-Day CRF", layout="wide")
+st.set_page_config(page_title="JUOG UTUC_Consolidative 90-Day CRF", layout="wide")
 
 # --- JUOG専用デザインCSS (完全維持) ---
 st.markdown("""
@@ -59,7 +59,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 共通リスト・ヘルプテキスト ---
+# --- 共通リスト・ヘルプテキスト (詳細版復元) ---
 FACILITY_LIST = [
     "選択してください", "愛知県がんセンター", "秋田大学", "愛媛大学", "大分大学", "大阪公立大学", 
     "大阪大学", "大阪府済生会野江病院", "岡山大学", "香川大学", "鹿児島大学", "関西医科大学", 
@@ -72,13 +72,22 @@ FACILITY_LIST = [
 ]
 
 HELP_CD = """
-**Clavien-Dindo 分類 (術後90日評価)**
-Gradingの原則：
-- **Grade I**：薬物、外科、内視鏡、IVRを要さない（制吐剤、解熱剤、鎮痛剤などは含む）。
-- **Grade II**：Grade I以外の薬物療法（輸血、中心静脈栄養含む）を要する。
-- **Grade III**：外科的、内視鏡的、IVRを要する（IIIa: 局麻、IIIb: 全麻）。
-- **Grade IV**：ICU管理を要する、生命を脅かす合併症。
-- **Grade V**：患者の死亡。
+**Clavien-Dindo 分類 (Gradingの原則)**[cite: 1]
+
+- **Grade I**：正常な術後経過からの逸脱で、薬物療法、または外科的治療、内視鏡的治療、IVR 治療を要さないもの。
+ただし、制吐剤、解熱剤、鎮痛剤、利尿剤による治療、電解質補充、理学療法は必要とする治療には含めない。また、ベッドサイドでの創感染の開放は Grade I とする。[cite: 1]
+
+- **Grade II**：制吐剤、解熱剤、鎮痛剤、利尿剤以外の薬物療法を要する。輸血および中心静脈栄養を要する場合を含む。[cite: 1]
+
+- **Grade III**：外科的治療、内視鏡的治療、IVR 治療を要する。[cite: 1]
+    - **Grade IIIa**：全身麻酔を要さない治療[cite: 1]
+    - **Grade IIIb**：全身麻酔下での治療[cite: 1]
+
+- **Grade IV**：ICU 管理を要する、生命を脅かす合併症（中枢神経系の合併症を含む）[cite: 1]
+    - **Grade IVa**：単一の臓器不全（透析を含む）[cite: 1]
+    - **Grade IVb**：多臓器不全[cite: 1]
+
+- **Grade V**：患者の死亡[cite: 1]
 """
 
 # --- セッション状態初期化 ---
@@ -113,7 +122,7 @@ def send_email(report_content, pid, facility):
         return True
     except: return False
 
-st.title("JUOG UTUC_Trial 術後90日目評価 CRF")
+st.title("JUOG UTUC_Consolidative 術後90日目 CRF")
 
 # --- 共通ヘッダー ---
 st.markdown('<div class="top-info-bar">', unsafe_allow_html=True)
@@ -134,7 +143,7 @@ with tab1:
         st.session_state.op_date_90 = st.date_input("手術実施日*", value=st.session_state.op_date_90)
         if st.session_state.op_date_90:
             target_90 = st.session_state.op_date_90 + timedelta(days=90)
-            st.info(f"90日目目安: {target_90} (許容範囲: {target_90 - timedelta(days=14)} ～ {target_90 + timedelta(days=14)})")
+            st.info(f"90日目目安: {target_90} (許容範囲: {target_90 - timedelta(days=14)} ～ {target_90 + timedelta(days=14)})")[cite: 1]
         
         st.session_state.eval_date_90 = st.date_input("評価実施日(来院日)*", value=st.session_state.eval_date_90)
         st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=None, horizontal=True)
@@ -145,7 +154,7 @@ with tab1:
         idx_cyto = cyto_opts.index(st.session_state.cytology_90) if st.session_state.cytology_90 in cyto_opts else 0
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=idx_cyto)
         
-        # 主要な血液データ (行を分けて段ズレを解消)
+        # 主要な血液データ (段ズレ解消済み)
         st.markdown("**【血液検査データ】**")
         r1c1, r1c2, r1c3 = st.columns(3)
         with r1c1: st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90, step=1)
@@ -157,7 +166,7 @@ with tab1:
         with r2c2: st.session_state.egfr_90 = st.number_input("eGFR (mL/min/1.73m2)*", value=st.session_state.egfr_90, step=0.1)
         with r2c3: st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90, step=0.01)
 
-    # 白血球分画：フォントサイズを統合し、採血からの一連の入力として配置
+    # 白血球分画：フォントサイズ統合・横並び配置
     st.markdown('<p style="font-size:14px; font-weight:bold; margin-top:15px; margin-bottom:0px;">【白血球分画】</p>', unsafe_allow_html=True)
     d1, d2, d3, d4, d5 = st.columns(5)
     with d1: st.session_state.neutro_90 = st.number_input("Neutro (%)", value=st.session_state.neutro_90, step=0.1)
@@ -188,11 +197,10 @@ with tab3:
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("【尿路内再発】")
-        # ラベルのご要望を反映
         st.session_state.pfs_intra_status = st.radio("尿路内再発の有無 (膀胱・対側上部尿路)*", ["なし", "あり"], index=None, horizontal=True)
         if st.session_state.pfs_intra_status == "あり":
             st.session_state.pfs_intra_date = st.date_input("尿路内再発確定日*", value=st.session_state.pfs_intra_date)
-            # 選択肢を分離
+            # 部位を分離
             st.session_state.pfs_intra_site = st.multiselect("部位", ["膀胱内", "対側尿管", "対側腎盂", "尿道"])
             tx_intra_opts = ["未選択", "TURBT", "内視鏡的焼灼術(レーザー等)", "注入療法(BCG等)", "温存療法", "経過観察", "その他"]
             st.session_state.pfs_intra_tx = st.selectbox("尿路内再発に対する治療内容*", tx_intra_opts)
@@ -206,7 +214,6 @@ with tab3:
             st.session_state.pfs_recist_site = st.multiselect("進行部位*", ["手術局所", "領域リンパ節", "遠隔リンパ節", "肺", "肝", "骨", "既存転移巣の増大", "その他"])
             
             st.markdown("**進行後の主たる治療戦略**")
-            # 選択肢の名称を修正
             tx_rec_opts = ["未選択", "EVP再開", "薬剤変更(2nd line以降)", "転移巣切除", "放射線治療", "集学的治療(TACE併用等詳細を記載)", "その他"]
             st.session_state.pfs_recist_tx = st.selectbox("治療内容*", tx_rec_opts)
             st.session_state.pfs_recist_tx_detail = st.text_area("進行後の治療詳細・レジメン名*", value=st.session_state.pfs_recist_tx_detail)
@@ -228,7 +235,7 @@ with tab4:
 
     st.divider()
 
-    # --- 送信ロジック (完全維持) ---
+    # --- 送信ロジック ---
     if st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True):
         h_errors = []
         if st.session_state.facility_name == "選択してください": h_errors.append("・施設名")
@@ -270,7 +277,7 @@ with tab4:
 分画: Neutro:{f_val(st.session_state.neutro_90)}%, Lympho:{f_val(st.session_state.lympho_90)}%, Mono:{f_val(st.session_state.mono_90)}%
 
 安全性: {st.session_state.cd_grade_90} ({st.session_state.cd_detail_90})
-再発(尿路内): {st.session_state.pfs_intra_status} (確定日: {st.session_state.pfs_intra_date}, 治療: {st.session_state.pfs_intra_tx})
+再発(尿路内): {st.session_state.pfs_intra_status} (部位: {st.session_state.pfs_intra_site}, 確定日: {st.session_state.pfs_intra_date})
 再発(尿路外): {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date})
 生存状況: {st.session_state.status_alive_90} (最終確認: {st.session_state.final_visit_date_90})
 """
