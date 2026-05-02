@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 # --- ページ設定 ---
 st.set_page_config(page_title="JUOG UTUC_Trial 90-Day CRF", layout="wide")
 
-# --- JUOG専用デザインCSS ---
+# --- JUOG専用デザインCSS (完全維持) ---
 st.markdown("""
     <style>
     header[data-testid="stHeader"] { visibility: hidden; }
@@ -66,7 +66,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 施設リスト ---
+# --- 施設リスト (完全維持) ---
 FACILITY_LIST = [
     "選択してください", "愛知県がんセンター", "秋田大学", "愛媛大学", "大分大学", "大阪公立大学", 
     "大阪大学", "大阪府済生会野江病院", "岡山大学", "香川大学", "鹿児島大学", "関西医科大学", 
@@ -78,14 +78,14 @@ FACILITY_LIST = [
     "横浜市立大学", "琉球大学", "和歌山県立医科大学", "その他"
 ]
 
-# --- ヘルプテキスト定義 (CD分類) ---
+# --- ヘルプテキスト定義 ---
 HELP_CD = """
 **Clavien-Dindo 分類 (術後90日評価)**
 Gradingの原則：
-- **Grade I**：薬物、外科的治療、内視鏡的治療、IVRを要さない。
+- **Grade I**：正常な術後経過からの逸脱。外科、内視鏡、IVRを要さない。
 - **Grade II**：Grade I以外の薬物療法（輸血、中心静脈栄養含む）を要する。
-- **Grade III**：外科的、内視鏡的、IVRを要する（IIIa: 局麻、IIIb: 全麻）。
-- **Grade IV**：ICU管理を要する、生命を脅かす合併症。
+- **Grade III**：外科的、内視鏡的、IVR治療を要する（IIIa: 局麻、IIIb: 全麻）。
+- **Grade IV**：ICU管理を要する。単臓器(IVa)または多臓器不全(IVb)。
 - **Grade V**：患者の死亡。
 """
 
@@ -99,7 +99,7 @@ if 'init_90d_done' not in st.session_state:
         "cytology_90": "選択してください",
         "cd_grade_90": "選択してください", "cd_detail_90": "",
         "adj_plan_90": "選択してください", "adj_other_90": "",
-        "pfs_intra_status": None, "pfs_intra_date": None, "pfs_intra_site": [], "pfs_intra_tx": "未選択", "pfs_intra_tx_other": "",
+        "pfs_intra_status": None, "pfs_intra_date": None, "pfs_intra_site": [], "pfs_intra_tx": "未選択", "pfs_intra_tx_detail": "",
         "pfs_recist_status": None, "pfs_recist_date": None, "pfs_recist_site": [], "pfs_recist_tx": "未選択", "pfs_recist_tx_detail": "",
         "status_alive_90": None, "final_visit_date_90": None, "death_cause_90": "選択してください", "death_date_90": None,
         "needs_confirm": False, "do_send": False
@@ -147,16 +147,7 @@ with tab1:
         if st.session_state.vital_abnormality_90 == "異常あり": st.session_state.vital_detail_90 = st.text_input("異常の詳細*")
         
         # 尿細胞診の詳細分類（日糖・パリ分類併記）
-        cyto_opts = [
-            "選択してください", 
-            "NILM (Class I・II)", 
-            "AUC (Class III相当)", 
-            "SHGUC (Class IV相当)", 
-            "HGUC (Class V相当)", 
-            "LGUC", 
-            "判定不能 (不適正検体)", 
-            "未実施"
-        ]
+        cyto_opts = ["選択してください", "NILM (Class I・II)", "AUC (Class III相当)", "SHGUC (Class IV相当)", "HGUC (Class V相当)", "LGUC", "判定不能", "未実施"]
         idx_cyto = cyto_opts.index(st.session_state.cytology_90) if st.session_state.cytology_90 in cyto_opts else 0
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=idx_cyto)
         
@@ -168,21 +159,21 @@ with tab1:
         st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=None, step=0.01)
 
 with tab2:
-    st.markdown('<div class="juog-header">2. 安全性評価および後治療の状況</div>', unsafe_allow_html=True)
+    st.markdown('<div class="juog-header">2. 安全性評価および術後補助療法の状況</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        cd_opts = ["選択してください", "Grade 0", "Grade I", "Grade II", "Grade IIIa", "Grade IIIb", "Grade IVa", "Grade IVb", "Grade V"]
         idx_cd = cd_opts.index(st.session_state.cd_grade_90) if st.session_state.cd_grade_90 in cd_opts else 0
         st.session_state.cd_grade_90 = st.selectbox("術後90日までの手術関連合併症 (CD分類)*", cd_opts, index=idx_cd, help=HELP_CD)
         if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
             st.session_state.cd_detail_90 = st.text_area("合併症の詳細内容*", value=st.session_state.cd_detail_90)
     
     with c2:
-        adj_opts = ["選択してください", "無治療（経過観察）", "後治療を計画中（未開始）", "EVP継続投与", "ペムブロ維持", "ニボ単剤", "GC/GCarbo", "その他"]
+        # GCとGCarboを分離
+        adj_opts = ["選択してください", "無治療（経過観察）", "後治療を計画中", "EVP継続投与", "ペムブロ維持", "ニボ単剤", "GC療法", "GCarbo療法", "その他"]
         idx_adj = adj_opts.index(st.session_state.adj_plan_90) if st.session_state.adj_plan_90 in adj_opts else 0
         st.session_state.adj_plan_90 = st.selectbox("現在の治療実施状況*", adj_opts, index=idx_adj)
         if st.session_state.adj_plan_90 == "その他":
-            st.session_state.adj_other_90 = st.text_area("詳細（追加手術等）*", value=st.session_state.adj_other_90)
+            st.session_state.adj_other_90 = st.text_area("詳細（追加手術、放射線等）*", value=st.session_state.adj_other_90)
 
 with tab3:
     st.markdown('<div class="juog-header">3. 再発評価 (PFS判定)</div>', unsafe_allow_html=True)
@@ -193,21 +184,21 @@ with tab3:
         if st.session_state.pfs_intra_status == "あり":
             st.session_state.pfs_intra_date = st.date_input("尿路内再発確定日*", value=st.session_state.pfs_intra_date)
             st.session_state.pfs_intra_site = st.multiselect("部位", ["膀胱内", "対側尿管・腎盂", "尿道"])
-            tx_intra_opts = ["未選択", "TURBT", "内視鏡的焼灼術(レーザー等)", "注入療法(BCG等)", "温存療法(レーザー等)", "経過観察", "その他"]
-            st.session_state.pfs_intra_tx = st.selectbox("尿路内再発に対する治療内容", tx_intra_opts)
-            if st.session_state.pfs_intra_tx == "その他":
-                st.session_state.pfs_intra_tx_other = st.text_input("具体的な治療法を入力してください*")
+            tx_intra_opts = ["未選択", "TURBT", "内視鏡的焼灼術(レーザー等)", "注入療法(BCG等)", "温存療法", "経過観察", "その他"]
+            st.session_state.pfs_intra_tx = st.selectbox("尿路内再発に対する治療内容*", tx_intra_opts)
+            st.session_state.pfs_intra_tx_detail = st.text_input("治療の具体的経過 (例: 1/20 TURBT施行など)")
 
     with c2:
         st.subheader("【尿路外再発・進行】")
         st.session_state.pfs_recist_status = st.radio("尿路外・RECIST進行の有無*", ["なし", "あり"], index=None, horizontal=True)
         if st.session_state.pfs_recist_status == "あり":
             st.session_state.pfs_recist_date = st.date_input("再発・進行確定日(PFSイベント日)*", value=st.session_state.pfs_recist_date)
-            st.session_state.pfs_recist_site = st.multiselect("進行部位", ["手術局所", "領域リンパ節", "遠隔リンパ節", "肺", "肝", "骨", "既存転移巣の増大", "その他"])
-            tx_rec_opts = ["未選択", "薬剤変更・追加(adjuvant/2nd)", "EVP再開", "転移巣切除", "放射線治療", "その他"]
-            st.session_state.pfs_recist_tx = st.selectbox("進行後の主たる治療内容", tx_rec_opts)
-            if st.session_state.pfs_recist_tx in ["薬剤変更・追加(adjuvant/2nd)", "その他"]:
-                st.session_state.pfs_recist_tx_detail = st.text_area("薬剤名・詳細なレジメン内容*", value=st.session_state.pfs_recist_tx_detail)
+            st.session_state.pfs_recist_site = st.multiselect("進行部位*", ["手術局所", "領域リンパ節", "遠隔リンパ節", "肺", "肝", "骨", "既存転移巣の増大", "その他"])
+            
+            st.markdown("**進行後の主たる治療戦略**")
+            tx_rec_opts = ["未選択", "EVP再開", "薬剤変更(2nd line以降)", "転移巣切除", "放射線治療", "集学的治療(TACE併用等)", "その他"]
+            st.session_state.pfs_recist_tx = st.selectbox("治療内容*", tx_rec_opts)
+            st.session_state.pfs_recist_tx_detail = st.text_area("治療の詳細な経過・レジメン名*", placeholder="例: 肺転移に対しGC療法開始。肝転移に対しGC+TACE施行など", value=st.session_state.pfs_recist_tx_detail)
 
 with tab4:
     st.markdown('<div class="juog-header">4. 生存状況確認 (Overall Survival)</div>', unsafe_allow_html=True)
@@ -215,7 +206,7 @@ with tab4:
     with c1:
         st.session_state.status_alive_90 = st.radio("生存状況 (術後90日時点)*", ["生存", "死亡"], index=None, horizontal=True)
         if st.session_state.status_alive_90 == "生存":
-            st.session_state.final_visit_date_90 = st.date_input("最終生存確認日(来院日)*", value=st.session_state.final_visit_date_90)
+            st.session_state.final_visit_date_90 = st.date_input("最終生存確認日(最終来院日)*", value=st.session_state.final_visit_date_90)
     
     with c2:
         if st.session_state.status_alive_90 == "死亡":
@@ -231,24 +222,22 @@ with tab4:
         h_errors = []
         if st.session_state.facility_name == "選択してください": h_errors.append("・施設名")
         if not st.session_state.patient_id: h_errors.append("・識別コード")
-        if not st.session_state.op_date_90: h_errors.append("・手術実施日")
-        if not st.session_state.eval_date_90: h_errors.append("・来院日")
-        if st.session_state.cytology_90 == "選択してください": h_errors.append("・尿細胞診結果")
+        if not st.session_state.eval_date_90: h_errors.append("・評価来院日")
+        if st.session_state.cytology_90 == "選択してください": h_errors.append("・尿細胞診")
         if st.session_state.cd_grade_90 == "選択してください": h_errors.append("・CD分類")
         
-        # 再発バリデーション
-        if st.session_state.pfs_intra_status == "あり" and not st.session_state.pfs_intra_date:
-            h_errors.append("・尿路内再発確定日")
+        if st.session_state.pfs_intra_status == "あり":
+            if not st.session_state.pfs_intra_date: h_errors.append("・尿路内再発確定日")
+            if st.session_state.pfs_intra_tx == "未選択": h_errors.append("・尿路内再発治療")
         if st.session_state.pfs_recist_status == "あり":
-            if not st.session_state.pfs_recist_date: h_errors.append("・再発・進行確定日")
-            if st.session_state.pfs_recist_tx in ["薬剤変更・追加(adjuvant/2nd)", "その他"] and not st.session_state.pfs_recist_tx_detail.strip():
-                h_errors.append("・進行後治療の詳細内容")
+            if not st.session_state.pfs_recist_date: h_errors.append("・進行確定日")
+            if not st.session_state.pfs_recist_site: h_errors.append("・進行部位")
+            if st.session_state.pfs_recist_tx == "未選択": h_errors.append("・進行後治療")
+            if not st.session_state.pfs_recist_tx_detail.strip(): h_errors.append("・進行後治療の詳細")
             
         if st.session_state.status_alive_90 is None: h_errors.append("・生存状況")
-        elif st.session_state.status_alive_90 == "生存" and not st.session_state.final_visit_date_90:
-            h_errors.append("・最終生存確認日")
-        elif st.session_state.status_alive_90 == "死亡" and st.session_state.death_cause_90 == "選択してください":
-            h_errors.append("・死因")
+        elif st.session_state.status_alive_90 == "生存" and not st.session_state.final_visit_date_90: h_errors.append("・最終生存確認日")
+        elif st.session_state.status_alive_90 == "死亡" and st.session_state.death_cause_90 == "選択してください": h_errors.append("・死因")
 
         if h_errors:
             st.error("以下の必須項目を入力してください：\n" + "\n".join(h_errors))
@@ -274,19 +263,20 @@ with tab4:
 施設: {st.session_state.facility_name} / ID: {st.session_state.patient_id}
 手術日: {st.session_state.op_date_90} / 評価日: {st.session_state.eval_date_90}
 
-【検査結果】
 尿細胞診: {st.session_state.cytology_90}
 血液: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}
+CD分類: {st.session_state.cd_grade_90} ({st.session_state.cd_detail_90})
+補助療法: {st.session_state.adj_plan_90}
 
-【再発・進行】
-尿路内: {st.session_state.pfs_intra_status} (確定日: {st.session_state.pfs_intra_date}, 治療: {st.session_state.pfs_intra_tx})
-尿路外: {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date}, 部位: {st.session_state.pfs_recist_site})
+再発・進行:
+尿路内: {st.session_state.pfs_intra_status} (確定日: {st.session_state.pfs_intra_date}, 治療: {st.session_state.pfs_intra_tx}, 経過: {st.session_state.pfs_intra_tx_detail})
+尿路外: {st.session_state.pfs_recist_status} (確定日: {st.session_state.pfs_recist_date}, 部位: {st.session_state.pfs_recist_site}, 治療: {st.session_state.pfs_recist_tx}, 詳細: {st.session_state.pfs_recist_tx_detail})
 
-【最終転帰】
+転帰:
 生存状況: {st.session_state.status_alive_90} (最終確認日: {st.session_state.final_visit_date_90})
-死因: {st.session_state.death_cause_90}
+死因: {st.session_state.death_cause_90} / 死亡日: {st.session_state.death_date_90}
 """
         if send_email(rep, st.session_state.patient_id, st.session_state.facility_name):
-            st.success("術後90日目のデータが正常に事務局へ送信されました。")
+            st.success("術後90日目のデータが正常に送信されました。")
             st.balloons()
         st.session_state.do_send = False
