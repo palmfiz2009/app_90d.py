@@ -4,11 +4,12 @@ from datetime import date, datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import re
 
 # --- ページ設定 ---
 st.set_page_config(page_title="JUOG UTUC_Consolidative 90-Day CRF", layout="wide")
 
-# --- JUOG専用デザインCSS (画像に基づき余白を調整) ---
+# --- JUOG専用デザインCSS (タイトル余白80pxを死守) ---
 st.markdown("""
     <style>
     header[data-testid="stHeader"] { visibility: hidden; }
@@ -23,7 +24,7 @@ st.markdown("""
         color: #0F172A; 
         text-align: center; 
         margin-top: 0px !important; 
-        margin-bottom: 80px !important; /* 表題と下の間隔を広く確保 */
+        margin-bottom: 80px !important; 
         font-weight: 800; 
         height: 40px;
     }
@@ -92,11 +93,11 @@ Gradingの原則：
 - **Grade V**：患者の死亡
 """
 
-# --- セッション状態初期化 (採血項目は None) ---
+# --- セッション状態初期化 ---
 if 'init_90d_done' not in st.session_state:
     st.session_state['init_90d_done'] = True
     defaults = {
-        "facility_name": "選択してください", "patient_id": "",
+        "facility_name": "選択してください", "patient_id": "", "reporter_email": "",
         "op_date_90": None, "eval_date_90": None, "vital_abnormality_90": None, "vital_detail_90": "",
         "wbc_90": None, "hb_90": None, "plt_90": None, "ast_90": None, "alt_90": None,
         "ldh_90": None, "alb_90": None, "cre_90": None, "egfr_90": None, "crp_90": None,
@@ -112,10 +113,12 @@ if 'init_90d_done' not in st.session_state:
     for k, v in defaults.items():
         if k not in st.session_state: st.session_state[k] = v
 
-def send_email(report_content, pid, facility):
+def send_email(report_content, pid, facility, user_email=None):
     try:
         mail_user = st.secrets["email"]["user"]; mail_pass = st.secrets["email"]["pass"]
         to_addrs = ["urosec@kmu.ac.jp", "yoshida.tks@kmu.ac.jp"]
+        if user_email: to_addrs.append(user_email) # 担当者のアドレスを追加
+        
         msg = MIMEMultipart(); msg['From'] = mail_user; msg['To'] = ", ".join(to_addrs)
         msg['Subject'] = f"【JUOG 90D報告】（{facility} / ID: {pid}）"
         msg.attach(MIMEText(report_content, 'plain'))
@@ -132,6 +135,7 @@ col_h1, col_h2 = st.columns(2)
 with col_h1:
     idx_fac = FACILITY_LIST.index(st.session_state.facility_name) if st.session_state.facility_name in FACILITY_LIST else 0
     st.session_state.facility_name = st.selectbox("施設名*", FACILITY_LIST, index=idx_fac)
+    st.session_state.reporter_email = st.text_input("報告者メールアドレス（控えの送付先）*", value=st.session_state.reporter_email)
 with col_h2:
     st.session_state.patient_id = st.text_input("研究対象者識別コード*", value=st.session_state.patient_id)
 st.markdown('</div>', unsafe_allow_html=True)
@@ -155,7 +159,6 @@ with tab1:
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=idx_cyto)
 
     st.markdown("---")
-    # 採血レイアウト維持 (デフォルト空欄)
     bc1, bc2 = st.columns(2)
     with bc1:
         st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90, step=1.0)
@@ -170,7 +173,6 @@ with tab1:
         st.session_state.egfr_90 = st.number_input("eGFR (mL/min/1.73m²)*", value=st.session_state.egfr_90, step=0.1)
         st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90, step=0.01)
 
-    # 白血球分画のデザイン調整
     st.markdown('<p style="font-size:18px; font-weight:bold; margin-top:20px; margin-bottom:5px;">白血球分画 (%)</p>', unsafe_allow_html=True)
     d1, d2, d3, d4, d5 = st.columns(5)
     with d1: st.session_state.neutro_90 = st.number_input("Neutro*", value=st.session_state.neutro_90, step=0.1)
@@ -185,7 +187,7 @@ with tab2:
     with c1:
         cd_opts = ["選択してください", "Grade 0", "Grade I", "Grade II", "Grade IIIa", "Grade IIIb", "Grade IVa", "Grade IVb", "Grade V"]
         idx_cd = cd_opts.index(st.session_state.cd_grade_90) if st.session_state.cd_grade_90 in cd_opts else 0
-        st.session_state.cd_grade_90 = st.selectbox("術後90日までの手術関連合併症 (CD分類)*", cd_opts, index=idx_cd, help=HELP_CD)
+        st.session_state.cd_grade_90 = st.selectbox("術後90日までの合併症 (CD分類)*", cd_opts, index=idx_cd, help=HELP_CD)
         if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
             st.session_state.cd_detail_90 = st.text_area("合併症の詳細内容*", value=st.session_state.cd_detail_90)
     with c2:
@@ -236,6 +238,7 @@ with tab4:
         # 1. 必須基本情報
         if d.facility_name == "選択してください": h_errors.append("・施設名")
         if not d.patient_id: h_errors.append("・識別コード")
+        if not d.reporter_email or not re.match(r"[^@]+@[^@]+\.[^@]+", d.reporter_email): h_errors.append("・有効な報告者メールアドレス")
         if not d.op_date_90: h_errors.append("・手術実施日")
         if not d.eval_date_90: h_errors.append("・評価来院日")
         if d.cd_grade_90 == "選択してください": h_errors.append("・CD分類")
@@ -265,7 +268,7 @@ with tab4:
         if d.vital_abnormality_90 is None: s_warnings.append("身体所見（異常の有無）")
         if d.cytology_90 == "選択してください": s_warnings.append("尿細胞診結果")
         
-        # 採血項目の警告 (Noneを検知)
+        # 採血項目の警告
         imp_labs = {"WBC":d.wbc_90, "Hb":d.hb_90, "PLT":d.plt_90, "Cre":d.cre_90}
         for k, v in imp_labs.items():
             if v is None: s_warnings.append(k)
@@ -300,11 +303,12 @@ with tab4:
         rep = f"""
 【JUOG 90D CRF報告】
 施設: {st.session_state.facility_name} / ID: {st.session_state.patient_id}
+報告者控え: {st.session_state.reporter_email}
 手術日: {st.session_state.op_date_90} / 評価日: {st.session_state.eval_date_90}
 生存: {st.session_state.status_alive_90} (CD:{st.session_state.cd_grade_90})
 主要採血: WBC:{f_val(st.session_state.wbc_90)}, Hb:{f_val(st.session_state.hb_90)}, Cre:{f_val(st.session_state.cre_90)}
 """
-        if send_email(rep, st.session_state.patient_id, st.session_state.facility_name):
-            st.success("術後90日目データが正常に送信されました。")
+        if send_email(rep, st.session_state.patient_id, st.session_state.facility_name, st.session_state.reporter_email):
+            st.success(f"術後90日目データが正常に送信されました。{st.session_state.reporter_email} 宛に控えを送付しました。")
             st.balloons()
         st.session_state.do_send = False
