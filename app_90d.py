@@ -171,8 +171,19 @@ with tab2:
             st.markdown("<div style='text-align: right;'><small>参照： <a href='https://jcog.jp/assets/CTCAEv6J_20260301_v28_0.pdf' target='_blank'>CTCAE v6.0 日本語訳 (JCOG版)</a></small></div>", unsafe_allow_html=True)
 
     with c2:
-        # 吉田先生のご指摘通り「EVP継続投与」「ペムブロ単剤維持」を追加！
-        adj_opts = ["選択してください", "無治療（経過観察）", "EVP継続投与", "ペムブロ単剤維持", "ニボルマブ単剤（術後補助療法）", "GC療法（術後補助療法）", "GCarbo療法（術後補助療法）", "放射線治療", "治験・その他薬物療法", "その他"]
+        adj_opts = [
+            "選択してください", 
+            "無治療（経過観察）", 
+            "術前からのEVP継続投与", 
+            "術前からのEV単独継続（間欠療法等を含む）", 
+            "術前からのペムブロリズマブ単剤継続", 
+            "ニボルマブ単剤（術後補助療法）", 
+            "GC療法（術後補助療法）", 
+            "GCarbo療法（術後補助療法）", 
+            "放射線治療", 
+            "治験・その他薬物療法", 
+            "その他"
+        ]
         st.session_state.adj_plan_90 = st.selectbox("現在の治療実施状況（補助療法等）*", adj_opts, index=get_idx(adj_opts, st.session_state.adj_plan_90))
         
         if st.session_state.adj_plan_90 not in ["選択してください", "無治療（経過観察）"]:
