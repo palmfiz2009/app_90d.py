@@ -112,12 +112,13 @@ with col_h1:
     st.session_state.patient_id = st.text_input("研究対象者識別コード*", value=st.session_state.patient_id)
 with col_h2:
     st.session_state.reporter_email = st.text_input("報告者メールアドレス*", value=st.session_state.reporter_email)
-    st.session_state.op_date_90 = st.date_input("手術実施日*", value=st.session_state.op_date_90)
+    # --- 修正点：手術日を「手術（予定）日」に変更 ---
+    st.session_state.op_date_90 = st.date_input("手術（予定）日*", value=st.session_state.op_date_90)
     
     if st.session_state.op_date_90:
         min_date = st.session_state.op_date_90 + timedelta(days=30)
         max_date = st.session_state.op_date_90 + timedelta(days=90)
-        st.info(f"📅 評価対象期間 (術後30日〜90日): {min_date.strftime('%Y/%m/%d')} 〜 {max_date.strftime('%Y/%m/%d')}")
+        st.info(f"📅 評価対象期間 (手術/予定日から30日〜90日): {min_date.strftime('%Y/%m/%d')} 〜 {max_date.strftime('%Y/%m/%d')}")
 
 tab1, tab2, tab3, tab4 = st.tabs(["🩺 身体所見・検査", "📋 安全性・術後補助療法", "🖼 再発評価 (PFS)", "⚖️ 生存確認 (OS)"])
 
@@ -192,11 +193,11 @@ with tab2:
             
             st.markdown("###### 治療日程")
             ax1, ax2 = st.columns(2)
-            st.session_state.adj_start_90 = ax1.date_input(f"{st.session_state.adj_plan_90} 開始日*", value=st.session_state.adj_start_90, key="adj_start")
-            st.session_state.adj_ongoing_90 = ax2.checkbox("現在も継続中", value=st.session_state.adj_ongoing_90, key="adj_ongoing")
+            st.session_state.adj_start_90 = ax1.date_input(f"{st.session_state.adj_plan_90} 開始日*", value=st.session_state.adj_start_90, key="k_adj_start_90")
+            st.session_state.adj_ongoing_90 = ax2.checkbox("現在も継続中", value=st.session_state.adj_ongoing_90, key="k_adj_ongoing_90")
             
             if not st.session_state.adj_ongoing_90:
-                st.session_state.adj_end_90 = ax2.date_input(f"{st.session_state.adj_plan_90} 終了日*", value=st.session_state.adj_end_90, key="adj_end")
+                st.session_state.adj_end_90 = ax2.date_input(f"{st.session_state.adj_plan_90} 終了日*", value=st.session_state.adj_end_90, key="k_adj_end_90")
             else:
                 st.session_state.adj_end_90 = None
 
@@ -218,17 +219,17 @@ with tab3:
             selected_intra_surgeries = [x for x in st.session_state.pfs_intra_tx if x in SURGERY_LIST]
             if selected_intra_surgeries:
                 label_op = f"{' + '.join(selected_intra_surgeries)} 実施日*"
-                st.session_state.intra_op_date_90 = st.date_input(label_op, value=st.session_state.intra_op_date_90, key="i_op_90")
-                st.session_state.pfs_intra_path_90 = st.text_area("組織型、Grade、pTNM分類 等*", value=st.session_state.pfs_intra_path_90, key="i_path_90")
+                st.session_state.intra_op_date_90 = st.date_input(label_op, value=st.session_state.intra_op_date_90, key="k_i_op_90")
+                st.session_state.pfs_intra_path_90 = st.text_area("組織型、Grade、pTNM分類 等*", value=st.session_state.pfs_intra_path_90, key="k_i_path_90")
             
             selected_intra_drugs = [x for x in st.session_state.pfs_intra_tx if x in DRUG_LIST]
             if selected_intra_drugs:
                 label_drug = f"{' + '.join(selected_intra_drugs)}"
                 ix1, ix2 = st.columns(2)
-                st.session_state.intra_tx_start_90 = ix1.date_input(f"{label_drug} 開始日*", value=st.session_state.intra_tx_start_90, key="i_start_90")
-                st.session_state.intra_tx_ongoing_90 = ix2.checkbox(f"{label_drug} 継続中", value=st.session_state.intra_tx_ongoing_90, key="i_ongoing_90")
+                st.session_state.intra_tx_start_90 = ix1.date_input(f"{label_drug} 開始日*", value=st.session_state.intra_tx_start_90, key="k_i_start_90")
+                st.session_state.intra_tx_ongoing_90 = ix2.checkbox(f"{label_drug} 継続中", value=st.session_state.intra_tx_ongoing_90, key="k_i_ongoing_90")
                 if not st.session_state.intra_tx_ongoing_90:
-                    st.session_state.intra_tx_end_90 = ix2.date_input(f"{label_drug} 終了日*", value=st.session_state.intra_tx_end_90, key="i_end_90")
+                    st.session_state.intra_tx_end_90 = ix2.date_input(f"{label_drug} 終了日*", value=st.session_state.intra_tx_end_90, key="k_i_end_90")
                 else:
                     st.session_state.intra_tx_end_90 = None
             
@@ -249,14 +250,14 @@ with tab3:
             
             cur_extra_tx = st.session_state.pfs_recist_tx
             if cur_extra_tx in ["転移巣切除"]:
-                st.session_state.extra_op_date_90 = st.date_input(f"{cur_extra_tx} 実施日*", value=st.session_state.extra_op_date_90, key="e_op_90")
+                st.session_state.extra_op_date_90 = st.date_input(f"{cur_extra_tx} 実施日*", value=st.session_state.extra_op_date_90, key="k_e_op_90")
             
             if cur_extra_tx in DRUG_LIST:
                 ex1, ex2 = st.columns(2)
-                st.session_state.extra_tx_start_90 = ex1.date_input(f"{cur_extra_tx} 開始日*", value=st.session_state.extra_tx_start_90, key="e_start_90")
-                st.session_state.extra_tx_ongoing_90 = ex2.checkbox(f"{cur_extra_tx} 継続中", value=st.session_state.extra_tx_ongoing_90, key="e_ongoing_90")
+                st.session_state.extra_tx_start_90 = ex1.date_input(f"{cur_extra_tx} 開始日*", value=st.session_state.extra_tx_start_90, key="k_e_start_90")
+                st.session_state.extra_tx_ongoing_90 = ex2.checkbox(f"{cur_extra_tx} 継続中", value=st.session_state.extra_tx_ongoing_90, key="k_e_ongoing_90")
                 if not st.session_state.extra_tx_ongoing_90:
-                    st.session_state.extra_tx_end_90 = ex2.date_input(f"{cur_extra_tx} 終了日*", value=st.session_state.extra_tx_end_90, key="e_end_90")
+                    st.session_state.extra_tx_end_90 = ex2.date_input(f"{cur_extra_tx} 終了日*", value=st.session_state.extra_tx_end_90, key="k_e_end_90")
                 else:
                     st.session_state.extra_tx_end_90 = None
 
@@ -283,7 +284,7 @@ with tab4:
         d = st.session_state
         if d.facility_name == "選択してください": err.append("・施設名")
         if not d.patient_id: err.append("・識別コード")
-        if not d.op_date_90: err.append("・手術実施日")
+        if not d.op_date_90: err.append("・手術（予定）日") # エラー文言も修正
         
         if d.cd_grade_90 == "選択してください": err.append("・Clavien-Dindo分類")
         if d.cd_grade_90 not in ["選択してください", "Grade 0"]:
