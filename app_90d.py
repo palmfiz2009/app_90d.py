@@ -68,8 +68,8 @@ HELP_CYTO = """【尿細胞診結果】
 * LGUC: 低異型度腫瘍"""
 
 # --- セッション状態初期化 ---
-if 'init_90d_perfect_v2' not in st.session_state:
-    st.session_state['init_90d_perfect_v2'] = True
+if 'init_90d_perfect_v3' not in st.session_state:
+    st.session_state['init_90d_perfect_v3'] = True
     LAB_KEYS = ["wbc_90", "hb_90", "plt_90", "ast_90", "alt_90", "ldh_90", "alb_90", "cre_90", "egfr_90", "crp_90", "neutro_90", "lympho_90", "mono_90", "eosino_90", "baso_90"]
     defaults = {
         "facility_name": "選択してください", "patient_id": "", "reporter_email": "",
@@ -160,7 +160,7 @@ with tab2:
     with c1:
         # 外科的合併症 (必須エンドポイント)
         cd_opts = ["選択してください", "Grade 0", "Grade I", "Grade II", "Grade IIIa", "Grade IIIb", "Grade IVa", "Grade IVb", "Grade V"]
-        st.session_state.cd_grade_90 = st.selectbox("合併症 (CD分類)*", cd_opts, index=get_idx(cd_opts, st.session_state.cd_grade_90), help=HELP_CD)
+        st.session_state.cd_grade_90 = st.selectbox("合併症 (Clavien-Dindo分類)*", cd_opts, index=get_idx(cd_opts, st.session_state.cd_grade_90), help=HELP_CD)
         if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
             st.session_state.cd_date_90 = st.date_input("合併症の発現日*", value=st.session_state.cd_date_90)
             st.session_state.cd_detail_90 = st.text_area("外科的合併症の詳細内容*", value=st.session_state.cd_detail_90)
@@ -185,10 +185,11 @@ with tab2:
             st.session_state.adj_start_90 = ax1.date_input(f"{st.session_state.adj_plan_90} 開始日*", value=st.session_state.adj_start_90, key="adj_start")
             st.session_state.adj_ongoing_90 = ax2.checkbox("現在も継続中", value=st.session_state.adj_ongoing_90, key="adj_ongoing")
             
+            # 継続中でなければ終了日を表示
             if not st.session_state.adj_ongoing_90:
                 st.session_state.adj_end_90 = ax2.date_input(f"{st.session_state.adj_plan_90} 終了日*", value=st.session_state.adj_end_90, key="adj_end")
             else:
-                st.session_state.adj_end_90 = None
+                st.session_state.adj_end_90 = None # 継続中チェック時はデータをクリア
 
 with tab3:
     st.markdown('<div class="juog-header">3. 再発評価 (PFS判定)</div>', unsafe_allow_html=True)
@@ -198,7 +199,7 @@ with tab3:
         st.session_state.pfs_intra_status = st.radio("尿路内再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_intra_status=="なし" else 1 if st.session_state.pfs_intra_status=="あり" else None), horizontal=True, key="r_intra_90")
         if st.session_state.pfs_intra_status == "あり":
             st.session_state.pfs_intra_date = st.date_input("診断日（組織・画像・膀胱鏡等）*", value=st.session_state.pfs_intra_date, key="d_intra_90")
-            st.session_state.pfs_intra_site = st.multiselect("再発部位*", ["膀胱", "対側腎盂", "対側尿管", "その他"], default=st.session_state.pfs_intra_site)
+            st.session_state.pfs_intra_site = st.multiselect("再発部位*", ["膀胱", "対側腎盂", "対側尿管", "同側残存尿管", "その他"], default=st.session_state.pfs_intra_site)
             if "その他" in st.session_state.pfs_intra_site:
                 st.session_state.pfs_intra_site_other = st.text_input("部位の詳細*", value=st.session_state.pfs_intra_site_other, key="site_intra_other")
             
@@ -275,7 +276,7 @@ with tab4:
         if not d.patient_id: err.append("・識別コード")
         if not d.op_date_90: err.append("・手術実施日")
         
-        if d.cd_grade_90 == "選択してください": err.append("・CD分類")
+        if d.cd_grade_90 == "選択してください": err.append("・Clavien-Dindo分類")
         if d.cd_grade_90 not in ["選択してください", "Grade 0"]:
             if not d.cd_date_90: err.append("・合併症の発現日")
             if not d.cd_detail_90: err.append("・外科的合併症の詳細")
