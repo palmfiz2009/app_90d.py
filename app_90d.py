@@ -68,8 +68,8 @@ HELP_CYTO = """【尿細胞診結果】
 * LGUC: 低異型度腫瘍"""
 
 # --- セッション状態初期化 ---
-if 'init_90d_perfect_v3' not in st.session_state:
-    st.session_state['init_90d_perfect_v3'] = True
+if 'init_90d_perfect_v4' not in st.session_state:
+    st.session_state['init_90d_perfect_v4'] = True
     LAB_KEYS = ["wbc_90", "hb_90", "plt_90", "ast_90", "alt_90", "ldh_90", "alb_90", "cre_90", "egfr_90", "crp_90", "neutro_90", "lympho_90", "mono_90", "eosino_90", "baso_90"]
     defaults = {
         "facility_name": "選択してください", "patient_id": "", "reporter_email": "",
@@ -158,7 +158,6 @@ with tab2:
     st.markdown('<div class="juog-header">2. 安全性評価および術後補助療法の状況</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        # 外科的合併症 (必須エンドポイント)
         cd_opts = ["選択してください", "Grade 0", "Grade I", "Grade II", "Grade IIIa", "Grade IIIb", "Grade IVa", "Grade IVb", "Grade V"]
         st.session_state.cd_grade_90 = st.selectbox("合併症 (Clavien-Dindo分類)*", cd_opts, index=get_idx(cd_opts, st.session_state.cd_grade_90), help=HELP_CD)
         if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
@@ -166,14 +165,14 @@ with tab2:
             st.session_state.cd_detail_90 = st.text_area("外科的合併症の詳細内容*", value=st.session_state.cd_detail_90)
             
         st.markdown("---")
-        # 薬剤関連等の有害事象 (チェックで出現)
         st.session_state.has_ctcae_90 = st.checkbox("薬剤関連等の有害事象（CTCAE準拠）を報告する", value=st.session_state.has_ctcae_90)
         if st.session_state.has_ctcae_90:
             st.session_state.ae_status = st.text_area("有害事象の詳細*", value=st.session_state.ae_status, placeholder="発現日、内容、重症度、処置、転帰などを記入")
             st.markdown("<div style='text-align: right;'><small>参照： <a href='https://jcog.jp/assets/CTCAEv6J_20260301_v28_0.pdf' target='_blank'>CTCAE v6.0 日本語訳 (JCOG版)</a></small></div>", unsafe_allow_html=True)
 
     with c2:
-        adj_opts = ["選択してください", "無治療（経過観察）", "ニボルマブ単剤（術後補助療法）", "GC療法（術後補助療法）", "GCarbo療法（術後補助療法）", "放射線治療", "治験・その他薬物療法", "その他"]
+        # 吉田先生のご指摘通り「EVP継続投与」「ペムブロ単剤維持」を追加！
+        adj_opts = ["選択してください", "無治療（経過観察）", "EVP継続投与", "ペムブロ単剤維持", "ニボルマブ単剤（術後補助療法）", "GC療法（術後補助療法）", "GCarbo療法（術後補助療法）", "放射線治療", "治験・その他薬物療法", "その他"]
         st.session_state.adj_plan_90 = st.selectbox("現在の治療実施状況（補助療法等）*", adj_opts, index=get_idx(adj_opts, st.session_state.adj_plan_90))
         
         if st.session_state.adj_plan_90 not in ["選択してください", "無治療（経過観察）"]:
@@ -185,11 +184,10 @@ with tab2:
             st.session_state.adj_start_90 = ax1.date_input(f"{st.session_state.adj_plan_90} 開始日*", value=st.session_state.adj_start_90, key="adj_start")
             st.session_state.adj_ongoing_90 = ax2.checkbox("現在も継続中", value=st.session_state.adj_ongoing_90, key="adj_ongoing")
             
-            # 継続中でなければ終了日を表示
             if not st.session_state.adj_ongoing_90:
                 st.session_state.adj_end_90 = ax2.date_input(f"{st.session_state.adj_plan_90} 終了日*", value=st.session_state.adj_end_90, key="adj_end")
             else:
-                st.session_state.adj_end_90 = None # 継続中チェック時はデータをクリア
+                st.session_state.adj_end_90 = None
 
 with tab3:
     st.markdown('<div class="juog-header">3. 再発評価 (PFS判定)</div>', unsafe_allow_html=True)
