@@ -112,13 +112,13 @@ with col_h1:
     st.session_state.patient_id = st.text_input("研究対象者識別コード*", value=st.session_state.patient_id)
 with col_h2:
     st.session_state.reporter_email = st.text_input("報告者メールアドレス*", value=st.session_state.reporter_email)
-    # --- 修正点：手術日を「手術（予定）日」に変更 ---
-    st.session_state.op_date_90 = st.date_input("手術（予定）日*", value=st.session_state.op_date_90)
+    # --- 修正点：文言の最適化 ---
+    st.session_state.op_date_90 = st.date_input("手術日（非施行例は予定日）*", value=st.session_state.op_date_90)
     
     if st.session_state.op_date_90:
         min_date = st.session_state.op_date_90 + timedelta(days=30)
         max_date = st.session_state.op_date_90 + timedelta(days=90)
-        st.info(f"📅 評価対象期間 (手術/予定日から30日〜90日): {min_date.strftime('%Y/%m/%d')} 〜 {max_date.strftime('%Y/%m/%d')}")
+        st.info(f"📅 評価対象期間 (手術日/予定日から30日〜90日): {min_date.strftime('%Y/%m/%d')} 〜 {max_date.strftime('%Y/%m/%d')}")
 
 tab1, tab2, tab3, tab4 = st.tabs(["🩺 身体所見・検査", "📋 安全性・術後補助療法", "🖼 再発評価 (PFS)", "⚖️ 生存確認 (OS)"])
 
@@ -284,7 +284,7 @@ with tab4:
         d = st.session_state
         if d.facility_name == "選択してください": err.append("・施設名")
         if not d.patient_id: err.append("・識別コード")
-        if not d.op_date_90: err.append("・手術（予定）日") # エラー文言も修正
+        if not d.op_date_90: err.append("・手術日（非施行例は予定日）") # エラー文言も修正
         
         if d.cd_grade_90 == "選択してください": err.append("・Clavien-Dindo分類")
         if d.cd_grade_90 not in ["選択してください", "Grade 0"]:
