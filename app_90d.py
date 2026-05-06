@@ -314,6 +314,73 @@ with tab4:
         
         if err: st.error("入力不備があります：\n" + "\n".join(err))
         else:
-            rep = f"【JUOG 90D報告】ID:{d.patient_id} / 施設:{d.facility_name}\n生存:{d.status_alive_90} / PFS判定済"
+            # --- 修正箇所：ここから下の rep = の部分だけをフルデータに変更しました ---
+            rep = f"""【JUOG 90D報告】
+施設名: {d.facility_name}
+研究対象者識別コード: {d.patient_id}
+報告者メールアドレス: {d.reporter_email}
+手術日（非施行例は予定日）: {d.op_date_90}
+
+--- 1. 身体所見・検査データ ---
+身体所見の異常: {d.vital_abnormality_90} (詳細: {d.vital_detail_90})
+尿細胞診結果: {d.cytology_90}
+
+[血液検査]
+WBC: {d.wbc_90} /μL
+Hb: {d.hb_90} g/dL
+PLT: {d.plt_90} x10^4/μL
+AST: {d.ast_90} U/L
+ALT: {d.alt_90} U/L
+LDH: {d.ldh_90} U/L
+Alb: {d.alb_90} g/dL
+Cre: {d.cre_90} mg/dL
+eGFR: {d.egfr_90} mL/min
+CRP: {d.crp_90} mg/dL
+
+[白血球分画]
+Neutro: {d.neutro_90} %
+Lympho: {d.lympho_90} %
+Mono: {d.mono_90} %
+Eosino: {d.eosino_90} %
+Baso: {d.baso_90} %
+
+--- 2. 安全性評価および術後補助療法 ---
+合併症 (CD分類): {d.cd_grade_90}
+合併症の発現日: {d.cd_date_90}
+外科的合併症の詳細内容: {d.cd_detail_90}
+
+CTCAE有害事象報告: {'あり' if d.has_ctcae_90 else 'なし'}
+有害事象の詳細: {d.ae_status}
+
+現在の治療実施状況: {d.adj_plan_90}
+治療の詳細(その他): {d.adj_other_90}
+開始日: {d.adj_start_90}
+終了日: {d.adj_end_90} (現在も継続中: {'はい' if d.adj_ongoing_90 else 'いいえ'})
+
+--- 3. 再発評価 (PFS判定) ---
+【尿路内再発】: {d.pfs_intra_status}
+診断日: {d.pfs_intra_date}
+再発部位: {', '.join(d.pfs_intra_site) if d.pfs_intra_site else ''} (その他詳細: {d.pfs_intra_site_other})
+実施した治療: {', '.join(d.pfs_intra_tx) if d.pfs_intra_tx else ''} (その他詳細: {d.pfs_intra_tx_other})
+手術実施日: {d.intra_op_date_90}
+組織型等: {d.pfs_intra_path_90}
+薬物療法開始日: {d.intra_tx_start_90}
+薬物療法終了日: {d.intra_tx_end_90} (継続中: {'はい' if d.intra_tx_ongoing_90 else 'いいえ'})
+
+【尿路外再発】: {d.pfs_recist_status}
+診断日: {d.pfs_recist_date}
+再発部位: {', '.join(d.pfs_recist_site) if d.pfs_recist_site else ''} (その他詳細: {d.pfs_recist_site_other})
+実施治療: {d.pfs_recist_tx} (その他詳細: {d.pfs_recist_tx_detail})
+手術実施日: {d.extra_op_date_90}
+薬物療法開始日: {d.extra_tx_start_90}
+薬物療法終了日: {d.extra_tx_end_90} (継続中: {'はい' if d.extra_tx_ongoing_90 else 'いいえ'})
+
+--- 4. 生存状況確認 (OS) ---
+生存状況: {d.status_alive_90}
+最終生存確認日: {d.final_visit_date_90}
+死亡日: {d.death_date_90}
+死因: {d.death_cause_90}
+"""
+            # --- 修正箇所ここまで ---
             if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
                 st.success("確定送信されました。"); st.balloons()
