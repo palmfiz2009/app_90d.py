@@ -112,7 +112,6 @@ with col_h1:
     st.session_state.patient_id = st.text_input("研究対象者識別コード*", value=st.session_state.patient_id)
 with col_h2:
     st.session_state.reporter_email = st.text_input("報告者メールアドレス*", value=st.session_state.reporter_email)
-    # --- 修正点：文言の最適化 ---
     st.session_state.op_date_90 = st.date_input("手術日（非施行例は予定日）*", value=st.session_state.op_date_90)
     
     if st.session_state.op_date_90:
@@ -245,7 +244,7 @@ with tab3:
             if "その他" in st.session_state.pfs_recist_site:
                 st.session_state.pfs_recist_site_other = st.text_input("部位の詳細*", value=st.session_state.pfs_recist_site_other, key="site_extra_other")
             
-            extra_tx_opts = ["選択してください", "プラチナ製剤併用療法（GC等）", "維持療法（アベルマブ等）", "EVP再開", "ペムブロリズマブ単剤", "ニボルマブ単剤", "転移巣切除", "放射線治療", "その他"]
+            extra_tx_opts = ["選択してください", "プラチナ製剤併用療法（GC等）", "維持療法（アベルマブ等）", "EVP再開", "ペムブロリズマブ単剤", "ニボルマブ単剤", "転移巣切除", "放射弱治療", "その他"]
             st.session_state.pfs_recist_tx = st.selectbox("実施治療*", extra_tx_opts, index=get_idx(extra_tx_opts, st.session_state.pfs_recist_tx))
             
             cur_extra_tx = st.session_state.pfs_recist_tx
@@ -284,7 +283,25 @@ with tab4:
         d = st.session_state
         if d.facility_name == "選択してください": err.append("・施設名")
         if not d.patient_id: err.append("・識別コード")
-        if not d.op_date_90: err.append("・手術日（非施行例は予定日）") # エラー文言も修正
+        if not d.op_date_90: err.append("・手術日（非施行例は予定日）")
+        
+        # --- 追加：タイムライン（日付）の矛盾チェック ---
+        if d.op_date_90:
+            if d.cd_date_90 and d.cd_date_90 < d.op_date_90: err.append("・[日付エラー] 合併症発現日が手術日より前です")
+            if d.final_visit_date_90 and d.final_visit_date_90 < d.op_date_90: err.append("・[日付エラー] 最終生存確認日が手術日より前です")
+            if d.death_date_90 and d.death_date_90 < d.op_date_90: err.append("・[日付エラー] 死亡日が手術日より前です")
+            if d.pfs_intra_date and d.pfs_intra_date < d.op_date_90: err.append("・[日付エラー] 尿路内再発の診断日が手術日より前です")
+            if d.pfs_recist_date and d.pfs_recist_date < d.op_date_90: err.append("・[日付エラー] 尿路外再発の診断日が手術日より前です")
+            
+            # 術後補助療法の開始日矛盾チェック（術前からの継続以外）
+            if d.adj_plan_90 in ["ニボルマブ単剤（術後補助療法）", "GC療法（術後補助療法）", "GCarbo療法（術後補助療法）"]:
+                if d.adj_start_90 and d.adj_start_90 < d.op_date_90: err.append(f"・[日付エラー] {d.adj_plan_90}の開始日が手術日より前です")
+            
+            # 開始日と終了日の逆転チェック
+            if d.adj_start_90 and d.adj_end_90 and d.adj_end_90 < d.adj_start_90: err.append("・[日付エラー] 補助療法の終了日が開始日より前です")
+            if d.intra_tx_start_90 and d.intra_tx_end_90 and d.intra_tx_end_90 < d.intra_tx_start_90: err.append("・[日付エラー] 尿路内治療の終了日が開始日より前です")
+            if d.extra_tx_start_90 and d.extra_tx_end_90 and d.extra_tx_end_90 < d.extra_tx_start_90: err.append("・[日付エラー] 尿路外治療の終了日が開始日より前です")
+        # ----------------------------------------------
         
         if d.cd_grade_90 == "選択してください": err.append("・Clavien-Dindo分類")
         if d.cd_grade_90 not in ["選択してください", "Grade 0"]:
@@ -314,7 +331,6 @@ with tab4:
         
         if err: st.error("入力不備があります：\n" + "\n".join(err))
         else:
-            # --- 修正箇所：ここから下の rep = の部分だけをフルデータに変更しました ---
             rep = f"""【JUOG 90D報告】
 施設名: {d.facility_name}
 研究対象者識別コード: {d.patient_id}
@@ -381,6 +397,5 @@ CTCAE有害事象報告: {'あり' if d.has_ctcae_90 else 'なし'}
 死亡日: {d.death_date_90}
 死因: {d.death_cause_90}
 """
-            # --- 修正箇所ここまで ---
             if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
                 st.success("確定送信されました。"); st.balloons()
