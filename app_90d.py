@@ -267,52 +267,69 @@ with tab4:
         if st.session_state.status_alive_90 == "生存":
             st.session_state.final_visit_date_90 = st.date_input("最終生存確認日*", value=st.session_state.final_visit_date_90)
     with c2:
-        if st.session_state.status_alive_90 == "死亡":
-            st.session_state.death_date_90 = st.date_input("死亡日*", value=st.session_state.death_date_90)
-            st.session_state.death_cause_90 = st.selectbox("死因*", ["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], index=get_idx(["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], st.session_state.death_cause_90))
+                st.date_input("死亡日*", value=None, key="death_date_90")
+                st.selectbox("死因*", ["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], key="death_cause_90")
+            
+            st.divider()
+            # 🔴 送信ボタンをこのタブ（OS）の最後にのみ配置し、戻り値として返す
+            return st.form_submit_button("🚀 90日目データを確定送信", type="primary", use_container_width=True)
 
-st.divider()
+# ==========================================
+# 4. Main Controller
+# ==========================================
+init_state()
+# render_uiからボタンの押し下げ状態（True/False）を受け取ります
+submitted = render_ui()
 
-# --- 送信バリデーション ---
-if st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True):
+if submitted:
+    # 🔴 ボタンが押されたら、詳細なバリデーションを開始します
     err = []
     d = st.session_state
     today = date.today()
 
-    # 1. 必須項目チェック
+    # --- 1. 基本必須項目チェック ---
     if d.facility_name == "選択してください": err.append("・施設名")
     if not d.patient_id: err.append("・識別コード")
     if not d.op_date_90: err.append("・初回手術日/予定日")
+    if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
+    if d.status_alive_90 in [None, "未選択"]: err.append("・生存状況")
 
-    if d.status_alive_90 is None: err.append("・生存状況")
+    # --- 2. 生存状況に応じた日付チェック (臨床的に重要) ---
     if d.status_alive_90 == "死亡":
         if d.death_cause_90 == "選択してください": err.append("・死因")
         if not d.death_date_90: err.append("・死亡日")
+    elif d.status_alive_90 == "生存":
+        if not d.final_visit_date_90: err.append("・最終生存確認日")
 
-    # 2. 報告期間のチェック
+    # --- 3. 報告期間の妥当性チェック (90日報告としての質を担保) ---
     if d.op_date_90 and d.final_visit_date_90:
         days_diff = (d.final_visit_date_90 - d.op_date_90).days
         if days_diff < 75:
             err.append(f"・[期間不備] 手術から{days_diff}日しか経過していません（90日報告には早すぎます）")
 
-    # 3. 再発矛盾チェック
-    if d.pfs_intra_status == "あり":
-        if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
-        if d.pfs_intra_date and d.op_date_90 and d.pfs_intra_date <= d.op_date_90:
-            err.append("・[日付矛盾] 尿路内再発の診断日が初回手術日以前です")
-        if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
-            err.append("・[日付矛盾] 再発に対する手術日が初回手術日以前です")
+    # --- 4. 未来日付の入力ミス防止 ---
+    date_keys = {
+        "op_date_90": "手術日", 
+        "cd_date_90": "合併症発現日", 
+        "adj_start_90": "補助療法開始日", 
+        "pfs_intra_date": "尿路内再発診断日", 
+        "pfs_recist_date": "尿路外再発診断日", 
+        "final_visit_date_90": "最終生存確認日", 
+        "death_date_90": "死亡日"
+    }
+    for key, label in date_keys.items():
+        val = d.get(key)
+        if val and isinstance(val, date) and val > today:
+            err.append(f"・[未来日エラー] {label}に未来の日付が入っています")
 
-    # 4. 未来日付チェック
-    for date_key in ["op_date_90", "cd_date_90", "adj_start_90", "adj_end_90", "pfs_intra_date", "intra_op_date_90", "pfs_recist_date", "extra_op_date_90", "final_visit_date_90", "death_date_90"]:
-        val = d.get(date_key)
-        if val and val > today:
-            err.append(f"・[日付エラー] 未来の日付（{val}）が入力されています")
-            break
-
-    if err: 
-        st.error("入力不備があります。修正してください：\n" + "\n".join(err))
+    # --- 判定と送信処理 ---
+    if err:
+        st.error("⚠️ 入力不備があります。修正してください：\n\n" + "\n".join(err))
     else:
+        # データのクリーニング実行
+        payload = build_payload(d)
+        
+        # 🔴 旧版の「しっかりした文言」をそのままレポートに適用
         rep = f"""【JUOG 90D報告】
 施設名: {d.facility_name} / ID: {d.patient_id}
 報告者: {d.reporter_email}
@@ -336,5 +353,14 @@ if st.button("🚀 90日目データを確定送信", type="primary", use_contai
 生存状況: {d.status_alive_90} (生存確認/死亡日: {d.final_visit_date_90 if d.status_alive_90=='生存' else d.death_date_90})
 """
         if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
-            st.success("確定送信されました。事務局および報告者宛に控えメールを送信しました。")
+            st.success("✅ 確定送信されました。事務局および報告者宛に控えメールを送信しました。")
             st.balloons()
+            
+            # JSON保存ボタンも念のため配置
+            json_data = json.dumps(payload, ensure_ascii=False, indent=2)
+            st.download_button(
+                label="📄 構造化データ(JSON)を保存", 
+                data=json_data, 
+                file_name=f"JUOG_90D_{d.patient_id}.json", 
+                mime="application/json"
+            )
