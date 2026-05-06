@@ -305,20 +305,25 @@ with tab4:
             if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
                 err.append("・[日付矛盾] 再発に対する手術日が初回手術日以前です")
 
-        # 4. 未来日付チェック
-        for date_key in ["op_date_90", "cd_date_90", "adj_start_90", "adj_end_90", "pfs_intra_date", "intra_op_date_90", "pfs_recist_date", "extra_op_date_90", "final_visit_date_90", "death_date_90"]:
-            val = d.get(date_key)
+        # 4. 未来日付チェック (どの項目がエラーか分かるように改善)
+        date_labels = {
+            "op_date_90": "手術日（予定日）",
+            "cd_date_90": "合併症の発現日",
+            "adj_start_90": "補助療法等 開始日",
+            "adj_end_90": "補助療法等 終了日",
+            "pfs_intra_date": "尿路内再発 診断日",
+            "intra_op_date_90": "尿路内再発に対する手術日",
+            "pfs_recist_date": "尿路外再発 診断日",
+            "extra_op_date_90": "尿路外再発に対する手術日",
+            "final_visit_date_90": "最終生存確認日",
+            "death_date_90": "死亡日"
+        }
+        
+        for key, label in date_labels.items():
+            val = d.get(key)
             if val and val > today:
-                err.append(f"・[日付エラー] 未来の日付（{val}）が入力されています")
-                break
-
-        if err: 
-            st.error("入力不備があります。修正してください：\n" + "\n".join(err))
-        else:
-            rep = f"""【JUOG 90D報告】
-施設名: {d.facility_name} / ID: {d.patient_id}
-報告者: {d.reporter_email}
-手術日: {d.op_date_90}
+                err.append(f"・[日付エラー] 「{label}」に未来の日付（{val}）が入力されています")
+                # breakを消したことで、未来の日付が複数あれば全部教えてくれます
 
 --- 1. 身体所見・検査データ ---
 身体所見の異常: {d.vital_abnormality_90} ({d.vital_detail_90})
