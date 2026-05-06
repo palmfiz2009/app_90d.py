@@ -101,7 +101,7 @@ def send_email(report_content, pid, facility, user_email=None):
         mail_pass = st.secrets["email"]["pass"]
         to_addrs = ["urosec@kmu.ac.jp", "yoshida.tks@kmu.ac.jp"]
         
-        # [修正1] 重複チェック（リストに無い場合のみ追加）
+        # 重複チェック（リストに無い場合のみ追加し、2通送信を防ぐ）
         if user_email and user_email not in to_addrs:
             to_addrs.append(user_email)
             
@@ -186,7 +186,6 @@ with tab2:
         st.session_state.has_ctcae_90 = st.checkbox("薬剤関連等の有害事象（CTCAE準拠）を報告する", value=st.session_state.has_ctcae_90)
         if st.session_state.has_ctcae_90:
             st.session_state.ae_status = st.text_area("有害事象の詳細*", value=st.session_state.ae_status, placeholder="発現日、内容、重症度、処置、転帰などを記入")
-            # --- 修正点：CTCAEリンクの復活 ---
             st.markdown("<div style='text-align: right;'><small>参照： <a href='https://jcog.jp/assets/CTCAEv6J_20260301_v28_0.pdf' target='_blank'>CTCAE v6.0 日本語訳 (JCOG版)</a></small></div>", unsafe_allow_html=True)
 
     with c2:
@@ -292,25 +291,92 @@ with tab4:
         d = st.session_state
         today = date.today()
 
-        # 1. 必須項目チェック
+        # 1. 必須項目チェック (UI上で「*」がついている全項目)
         if d.facility_name == "選択してください": err.append("・施設名")
-        if not d.patient_id: err.append("・識別コード")
-        if not d.op_date_90: err.append("・初回手術日/予定日")
+        if not d.patient_id: err.append("・研究対象者識別コード")
+        
+        # メール形式チェック
+        if not d.reporter_email: 
+            err.append("・報告者メールアドレス")
+        elif not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", d.reporter_email):
+            err.append("・報告者メールアドレスの形式が正しくありません")
+            
+        if not d.op_date_90: err.append("・手術日（非施行例は予定日）")
 
+        # Tab1
+        if d.vital_abnormality_90 == "異常あり" and not d.vital_detail_90: err.append("・身体所見の異常の詳細")
+        if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
+        
+        # 血液検査の未入力チェック（エラーにはせず、missing_labs にまとめる）
+        lab_labels = {"wbc_90": "WBC", "hb_90": "Hb", "plt_90": "PLT", "ast_90": "AST", "alt_90": "ALT", 
+                      "ldh_90": "LDH", "alb_90": "Alb", "cre_90": "Cre", "egfr_90": "eGFR", "crp_90": "CRP",
+                      "neutro_90": "Neutro", "lympho_90": "Lympho", "mono_90": "Mono", "eosino_90": "Eosino", "baso_90": "Baso"}
+        missing_labs = []
+        for k, label in lab_labels.items():
+            if d.get(k) is None: 
+                missing_labs.append(label)
+
+        # Tab2
+        if d.cd_grade_90 == "選択してください": err.append("・合併症 (Clavien-Dindo分類)")
+        elif d.cd_grade_90 != "Grade 0":
+            if not d.cd_date_90: err.append("・合併症の発現日")
+            if not d.cd_detail_90: err.append("・外科的合併症の詳細内容")
+
+        if d.has_ctcae_90 and not d.ae_status: err.append("・有害事象の詳細")
+
+        if d.adj_plan_90 == "選択してください": err.append("・現在の治療実施状況（補助療法等）")
+        elif d.adj_plan_90 != "無治療（経過観察）":
+            if d.adj_plan_90 in ["治験・その他薬物療法", "その他"] and not d.adj_other_90: err.append("・治療の詳細")
+            if not d.adj_start_90: err.append("・治療開始日")
+            if not d.adj_ongoing_90 and not d.adj_end_90: err.append("・治療終了日")
+
+        # Tab3
+        if d.pfs_intra_status == "あり":
+            if not d.pfs_intra_date: err.append("・尿路内再発 診断日")
+            if not d.pfs_intra_site: err.append("・尿路内再発 再発部位")
+            elif "その他" in d.pfs_intra_site and not d.pfs_intra_site_other: err.append("・尿路内再発 部位の詳細")
+            
+            if not d.pfs_intra_tx: err.append("・尿路内再発 実施した治療")
+            else:
+                if any(x in SURGERY_LIST for x in d.pfs_intra_tx):
+                    if not d.intra_op_date_90: err.append("・尿路内再発 手術日")
+                    if not d.pfs_intra_path_90: err.append("・尿路内再発 組織型等")
+                if any(x in DRUG_LIST for x in d.pfs_intra_tx):
+                    if not d.intra_tx_start_90: err.append("・尿路内再発 治療開始日")
+                    if not d.intra_tx_ongoing_90 and not d.intra_tx_end_90: err.append("・尿路内再発 治療終了日")
+                if "その他" in d.pfs_intra_tx and not d.pfs_intra_tx_other: err.append("・尿路内再発 治療の「その他」詳細")
+
+        if d.pfs_recist_status == "あり":
+            if not d.pfs_recist_date: err.append("・尿路外再発 診断日")
+            if not d.pfs_recist_site: err.append("・尿路外再発 再発部位")
+            elif "その他" in d.pfs_recist_site and not d.pfs_recist_site_other: err.append("・尿路外再発 部位の詳細")
+            
+            if d.pfs_recist_tx == "選択してください": err.append("・尿路外再発 実施治療")
+            else:
+                if d.pfs_recist_tx == "転移巣切除" and not d.extra_op_date_90: err.append("・尿路外再発 手術日")
+                if d.pfs_recist_tx in DRUG_LIST:
+                    if not d.extra_tx_start_90: err.append("・尿路外再発 治療開始日")
+                    if not d.extra_tx_ongoing_90 and not d.extra_tx_end_90: err.append("・尿路外再発 治療終了日")
+                if d.pfs_recist_tx == "その他" and not d.pfs_recist_tx_detail: err.append("・尿路外再発 治療の詳細")
+
+        # Tab4
         if d.status_alive_90 is None: err.append("・生存状況")
-        if d.status_alive_90 == "死亡":
-            if d.death_cause_90 == "選択してください": err.append("・死因")
+        elif d.status_alive_90 == "生存":
+            if not d.final_visit_date_90: err.append("・最終生存確認日")
+        elif d.status_alive_90 == "死亡":
             if not d.death_date_90: err.append("・死亡日")
+            if d.death_cause_90 == "選択してください": err.append("・死因")
 
-        # 2. 報告期間のチェック
-        if d.op_date_90 and d.final_visit_date_90:
-            days_diff = (d.final_visit_date_90 - d.op_date_90).days
-            if days_diff < 75:
-                err.append(f"・[期間不備] 手術から{days_diff}日しか経過していません（90日報告には早すぎます）")
+        # 2. 報告期間のチェック（75日〜104日）
+        eval_date = d.final_visit_date_90 if d.status_alive_90 == "生存" else d.death_date_90
+        if d.op_date_90 and eval_date:
+            days_diff = (eval_date - d.op_date_90).days
+            if days_diff < 75 or days_diff > 104:
+                err.append(f"・[期間不備] 評価日（{eval_date.strftime('%Y/%m/%d')}）が手術から {days_diff} 日経過時点になっています。（90日報告は 75日〜104日 の範囲である必要があります）")
 
         # 3. 再発矛盾チェック
         if d.pfs_intra_status == "あり":
-            if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
+            if d.cytology_90 == "選択してください": err.append("・[矛盾] 尿路内再発ありの場合、尿細胞診結果が必須です")
             if d.pfs_intra_date and d.op_date_90 and d.pfs_intra_date <= d.op_date_90:
                 err.append("・[日付矛盾] 尿路内再発の診断日が初回手術日以前です")
             if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
@@ -406,4 +472,7 @@ with tab4:
 
             if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
                 st.success("確定送信されました。事務局および報告者宛に控えメールを送信しました。")
+                # 未入力の血液検査値があれば警告を表示
+                if missing_labs:
+                    st.warning(f"⚠️ 以下の血液検査値が未入力（N/A）のまま送信されました: {', '.join(missing_labs)}")
                 st.balloons()
