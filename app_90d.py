@@ -126,7 +126,8 @@ with tab1:
     c_top1, c_top2 = st.columns(2)
     with c_top1:
         st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=(0 if st.session_state.vital_abnormality_90=="異常なし" else 1 if st.session_state.vital_abnormality_90=="異常あり" else None), horizontal=True)
-        if st.session_state.vital_abnormality_90 == "異常あり": st.session_state.vital_detail_90 = st.text_input("異常の詳細*")
+        if st.session_state.vital_abnormality_90 == "異常あり":
+            st.session_state.vital_detail_90 = st.text_input("異常の詳細*", value=st.session_state.vital_detail_90)
     with c_top2:
         cyto_opts = ["選択してください", "Negative (クラスI・II)", "AUC (非定型細胞)", "SHGUC (高異型度癌疑い)", "HGUC (クラスIV・V相当)", "LGUC (低異型度腫瘍)", "判定不能", "未実施"]
         st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=get_idx(cyto_opts, st.session_state.cytology_90), help=HELP_CYTO)
@@ -244,7 +245,7 @@ with tab3:
             if "その他" in st.session_state.pfs_recist_site:
                 st.session_state.pfs_recist_site_other = st.text_input("部位の詳細*", value=st.session_state.pfs_recist_site_other, key="site_extra_other")
             
-            extra_tx_opts = ["選択してください", "プラチナ製剤併用療法（GC等）", "維持療法（アベルマブ等）", "EVP再開", "ペムブロリズマブ単剤", "ニボルマブ単剤", "転移巣切除", "放射弱治療", "その他"]
+            extra_tx_opts = ["選択してください", "プラチナ製剤併用療法（GC等）", "維持療法（アベルマブ等）", "EVP再開", "ペムブロリズマブ単剤", "ニボルマブ単剤", "転移巣切除", "放射線治療", "その他"]
             st.session_state.pfs_recist_tx = st.selectbox("実施治療*", extra_tx_opts, index=get_idx(extra_tx_opts, st.session_state.pfs_recist_tx))
             
             cur_extra_tx = st.session_state.pfs_recist_tx
@@ -277,125 +278,88 @@ with tab4:
 
     st.divider()
 
-    # --- 送信バリデーション ---
-    if st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True):
-        err = []
-        d = st.session_state
-        if d.facility_name == "選択してください": err.append("・施設名")
-        if not d.patient_id: err.append("・識別コード")
-        if not d.op_date_90: err.append("・手術日（非施行例は予定日）")
-        
-        # --- 追加：タイムライン（日付）の矛盾チェック ---
-        if d.op_date_90:
-            if d.cd_date_90 and d.cd_date_90 < d.op_date_90: err.append("・[日付エラー] 合併症発現日が手術日より前です")
-            if d.final_visit_date_90 and d.final_visit_date_90 < d.op_date_90: err.append("・[日付エラー] 最終生存確認日が手術日より前です")
-            if d.death_date_90 and d.death_date_90 < d.op_date_90: err.append("・[日付エラー] 死亡日が手術日より前です")
-            if d.pfs_intra_date and d.pfs_intra_date < d.op_date_90: err.append("・[日付エラー] 尿路内再発の診断日が手術日より前です")
-            if d.pfs_recist_date and d.pfs_recist_date < d.op_date_90: err.append("・[日付エラー] 尿路外再発の診断日が手術日より前です")
-            
-            # 術後補助療法の開始日矛盾チェック（術前からの継続以外）
-            if d.adj_plan_90 in ["ニボルマブ単剤（術後補助療法）", "GC療法（術後補助療法）", "GCarbo療法（術後補助療法）"]:
-                if d.adj_start_90 and d.adj_start_90 < d.op_date_90: err.append(f"・[日付エラー] {d.adj_plan_90}の開始日が手術日より前です")
-            
-            # 開始日と終了日の逆転チェック
-            if d.adj_start_90 and d.adj_end_90 and d.adj_end_90 < d.adj_start_90: err.append("・[日付エラー] 補助療法の終了日が開始日より前です")
-            if d.intra_tx_start_90 and d.intra_tx_end_90 and d.intra_tx_end_90 < d.intra_tx_start_90: err.append("・[日付エラー] 尿路内治療の終了日が開始日より前です")
-            if d.extra_tx_start_90 and d.extra_tx_end_90 and d.extra_tx_end_90 < d.extra_tx_start_90: err.append("・[日付エラー] 尿路外治療の終了日が開始日より前です")
-        # ----------------------------------------------
-        
-        if d.cd_grade_90 == "選択してください": err.append("・Clavien-Dindo分類")
-        if d.cd_grade_90 not in ["選択してください", "Grade 0"]:
-            if not d.cd_date_90: err.append("・合併症の発現日")
-            if not d.cd_detail_90: err.append("・外科的合併症の詳細")
-            
-        if d.has_ctcae_90 and not d.ae_status: err.append("・薬剤関連等 有害事象の詳細")
-        
-        if d.adj_plan_90 == "選択してください": err.append("・術後補助療法の状況")
-        if d.adj_plan_90 not in ["選択してください", "無治療（経過観察）"]:
-            if not d.adj_start_90: err.append("・術後補助療法の開始日")
-            if not d.adj_ongoing_90 and not d.adj_end_90: err.append("・術後補助療法の終了日")
-            
-        if d.pfs_intra_status == "あり":
-            if not d.pfs_intra_tx: err.append("・尿路内再発の治療内容")
-            if any(x in d.pfs_intra_tx for x in DRUG_LIST):
-                if not d.intra_tx_start_90: err.append("・尿路内薬物療法の開始日")
-                if not d.intra_tx_ongoing_90 and not d.intra_tx_end_90: err.append("・尿路内薬物療法の終了日")
-                
-        if d.pfs_recist_status == "あり":
-            if d.pfs_recist_tx == "選択してください": err.append("・尿路外再発の治療内容")
-            if d.pfs_recist_tx in DRUG_LIST:
-                if not d.extra_tx_start_90: err.append("・尿路外薬物療法の開始日")
-                if not d.extra_tx_ongoing_90 and not d.extra_tx_end_90: err.append("・尿路外薬物療法の終了日")
+# --- 送信バリデーション ---
+if st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True):
+    err = []
+    d = st.session_state
+    today = date.today()
 
-        if d.status_alive_90 is None: err.append("・生存状況")
-        
-        if err: st.error("入力不備があります：\n" + "\n".join(err))
-        else:
-            rep = f"""【JUOG 90D報告】
-施設名: {d.facility_name}
-研究対象者識別コード: {d.patient_id}
-報告者メールアドレス: {d.reporter_email}
-手術日（非施行例は予定日）: {d.op_date_90}
+    # 1. 必須項目チェック
+    if d.facility_name == "選択してください": err.append("・施設名")
+    if not d.patient_id: err.append("・識別コード")
+    if not d.op_date_90: err.append("・初回手術日/予定日")
+    if d.status_alive_90 is None: err.append("・生存状況")
+    if d.status_alive_90 == "死亡":
+        if d.death_cause_90 == "選択してください": err.append("・死因")
+        if not d.death_date_90: err.append("・死亡日")
+
+    # 2. 報告期間のチェック（術後75日以上経過しているか）
+    if d.op_date_90 and d.final_visit_date_90:
+        days_diff = (d.final_visit_date_90 - d.op_date_90).days
+        if days_diff < 75:
+            err.append(f"・[期間不備] 手術から{days_diff}日しか経過していません（90日報告には早すぎます）")
+
+    # 3. 再発評価の矛盾チェック
+    if d.pfs_intra_status == "あり":
+        if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
+        if d.pfs_intra_date and d.op_date_90 and d.pfs_intra_date <= d.op_date_90:
+            err.append("・[日付矛盾] 尿路内再発の診断日が初回手術日以前です")
+        if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
+            err.append("・[日付矛盾] 再発に対する手術日が初回手術日以前です")
+
+    # 4. タイムライン矛盾（OS/補助療法）
+    if d.final_visit_date_90 and d.adj_start_90 and d.final_visit_date_90 < d.adj_start_90:
+        err.append("・[日付矛盾] 最終生存確認日が治療開始日より前になっています")
+    if d.op_date_90:
+        if d.cd_date_90 and d.cd_date_90 < d.op_date_90: err.append("・[日付エラー] 合併症発現日が初回手術日より前です")
+        if d.final_visit_date_90 and d.final_visit_date_90 < d.op_date_90: err.append("・[日付エラー] 最終生存確認日が初回手術日より前です")
+
+    # 5. 未来の日付チェック
+    for date_key in ["op_date_90", "cd_date_90", "adj_start_90", "adj_end_90", "pfs_intra_date", "intra_op_date_90", "pfs_recist_date", "extra_op_date_90", "final_visit_date_90", "death_date_90"]:
+        val = d.get(date_key)
+        if val and val > today:
+            err.append(f"・[日付エラー] 未来の日付（{val}）が入力されています")
+            break
+
+    if err: 
+        st.error("入力不備があります。修正してください：\n" + "\n".join(err))
+    else:
+        # レポート作成（hb_90、f_num関数を使用して作成）
+        rep = f"""【JUOG 90D報告】
+施設名: {d.facility_name} / ID: {d.patient_id}
+報告者: {d.reporter_email}
+手術日: {d.op_date_90}
 
 --- 1. 身体所見・検査データ ---
 身体所見の異常: {d.vital_abnormality_90} (詳細: {d.vital_detail_90})
 尿細胞診結果: {d.cytology_90}
-
-[血液検査]
-WBC: {d.wbc_90} /μL
-Hb: {d.hb_90} g/dL
-PLT: {d.plt_90} x10^4/μL
-AST: {d.ast_90} U/L
-ALT: {d.alt_90} U/L
-LDH: {d.ldh_90} U/L
-Alb: {d.alb_90} g/dL
-Cre: {d.cre_90} mg/dL
-eGFR: {d.egfr_90} mL/min
-CRP: {d.crp_90} mg/dL
-
-[白血球分画]
-Neutro: {d.neutro_90} %
-Lympho: {d.lympho_90} %
-Mono: {d.mono_90} %
-Eosino: {d.eosino_90} %
-Baso: {d.baso_90} %
+血液検査: WBC:{f_num(d.wbc_90)}, Hb:{f_num(d.hb_90)}, PLT:{f_num(d.plt_90)}, AST:{f_num(d.ast_90)}, ALT:{f_num(d.alt_90)}, LDH:{f_num(d.ldh_90)}, Alb:{f_num(d.alb_90)}, Cre:{f_num(d.cre_90)}, eGFR:{f_num(d.egfr_90)}, CRP:{f_num(d.crp_90)}
+白血球分画: Neutro {f_num(d.neutro_90)}%, Lympho {f_num(d.lympho_90)}%, Mono {f_num(d.mono_90)}%, Eosino {f_num(d.eosino_90)}%, Baso {f_num(d.baso_90)}%
 
 --- 2. 安全性評価および術後補助療法 ---
-合併症 (CD分類): {d.cd_grade_90}
-合併症の発現日: {d.cd_date_90}
-外科的合併症の詳細内容: {d.cd_detail_90}
-
-CTCAE有害事象報告: {'あり' if d.has_ctcae_90 else 'なし'}
-有害事象の詳細: {d.ae_status}
-
-現在の治療実施状況: {d.adj_plan_90}
-治療の詳細(その他): {d.adj_other_90}
-開始日: {d.adj_start_90}
-終了日: {d.adj_end_90} (現在も継続中: {'はい' if d.adj_ongoing_90 else 'いいえ'})
+合併症 (CD分類): {d.cd_grade_90} (発現日: {d.cd_date_90})
+外科的合併症詳細: {d.cd_detail_90}
+CTCAE有害事象報告: {'あり' if d.has_ctcae_90 else 'なし'} (詳細: {d.ae_status})
+現在の治療: {d.adj_plan_90} (詳細: {d.adj_other_90})
+日程: 開始 {d.adj_start_90} / 終了 {d.adj_end_90} (継続中: {'はい' if d.adj_ongoing_90 else 'いいえ'})
 
 --- 3. 再発評価 (PFS判定) ---
-【尿路内再発】: {d.pfs_intra_status}
-診断日: {d.pfs_intra_date}
-再発部位: {', '.join(d.pfs_intra_site) if d.pfs_intra_site else ''} (その他詳細: {d.pfs_intra_site_other})
-実施した治療: {', '.join(d.pfs_intra_tx) if d.pfs_intra_tx else ''} (その他詳細: {d.pfs_intra_tx_other})
-手術実施日: {d.intra_op_date_90}
-組織型等: {d.pfs_intra_path_90}
-薬物療法開始日: {d.intra_tx_start_90}
-薬物療法終了日: {d.intra_tx_end_90} (継続中: {'はい' if d.intra_tx_ongoing_90 else 'いいえ'})
+【尿路内再発】: {d.pfs_intra_status} (診断日: {d.pfs_intra_date})
+部位: {', '.join(d.pfs_intra_site) if d.pfs_intra_site else 'なし'} ({d.pfs_intra_site_other})
+治療: {', '.join(d.pfs_intra_tx) if d.pfs_intra_tx else 'なし'} ({d.pfs_intra_tx_other})
+手術日: {d.intra_op_date_90} / 病理: {d.pfs_intra_path_90}
+薬物療法: 開始 {d.intra_tx_start_90}
 
-【尿路外再発】: {d.pfs_recist_status}
-診断日: {d.pfs_recist_date}
-再発部位: {', '.join(d.pfs_recist_site) if d.pfs_recist_site else ''} (その他詳細: {d.pfs_recist_site_other})
-実施治療: {d.pfs_recist_tx} (その他詳細: {d.pfs_recist_tx_detail})
-手術実施日: {d.extra_op_date_90}
-薬物療法開始日: {d.extra_tx_start_90}
-薬物療法終了日: {d.extra_tx_end_90} (継続中: {'はい' if d.extra_tx_ongoing_90 else 'いいえ'})
+【尿路外再発】: {d.pfs_recist_status} (診断日: {d.pfs_recist_date})
+部位: {', '.join(d.pfs_recist_site) if d.pfs_recist_site else 'なし'} ({d.pfs_recist_site_other})
+実施治療: {d.pfs_recist_tx} ({d.pfs_recist_tx_detail})
+手術日: {d.extra_op_date_90} / 薬物療法開始: {d.extra_tx_start_90}
 
 --- 4. 生存状況確認 (OS) ---
 生存状況: {d.status_alive_90}
 最終生存確認日: {d.final_visit_date_90}
-死亡日: {d.death_date_90}
-死因: {d.death_cause_90}
+死亡日: {d.death_date_90} / 死因: {d.death_cause_90}
 """
-            if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
-                st.success("確定送信されました。"); st.balloons()
+        if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
+            st.success("確定送信されました。事務局および報告者宛に控えメールを送信しました。")
+            st.balloons()
