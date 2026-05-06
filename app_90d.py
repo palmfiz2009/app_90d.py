@@ -273,7 +273,7 @@ with tab4:
 
     st.divider()
 
-    # --- 送信バリデーション（プロ的改善：変数submittedで受ける） ---
+    # --- 送信バリデーション ---
     submitted = st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True)
     
     if submitted:
@@ -323,7 +323,14 @@ with tab4:
             val = d.get(key)
             if val and val > today:
                 err.append(f"・[日付エラー] 「{label}」に未来の日付（{val}）が入力されています")
-                # breakを消したことで、未来の日付が複数あれば全部教えてくれます
+
+        if err: 
+            st.error("入力不備があります。修正してください：\n" + "\n".join(err))
+        else:
+            rep = f"""【JUOG 90D報告】
+施設名: {d.facility_name} / ID: {d.patient_id}
+報告者: {d.reporter_email}
+手術日: {d.op_date_90}
 
 --- 1. 身体所見・検査データ ---
 身体所見の異常: {d.vital_abnormality_90} ({d.vital_detail_90})
