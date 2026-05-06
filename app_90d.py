@@ -271,49 +271,51 @@ with tab4:
             st.session_state.death_date_90 = st.date_input("死亡日*", value=st.session_state.death_date_90)
             st.session_state.death_cause_90 = st.selectbox("死因*", ["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], index=get_idx(["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], st.session_state.death_cause_90))
 
-st.divider()
+    st.divider()
 
-# --- 送信バリデーション ---
-if st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True):
-    err = []
-    d = st.session_state
-    today = date.today()
+    # --- 送信バリデーション（プロ的改善：変数submittedで受ける） ---
+    submitted = st.button("🚀 90日目データを確定送信", type="primary", use_container_width=True)
+    
+    if submitted:
+        err = []
+        d = st.session_state
+        today = date.today()
 
-    # 1. 必須項目チェック
-    if d.facility_name == "選択してください": err.append("・施設名")
-    if not d.patient_id: err.append("・識別コード")
-    if not d.op_date_90: err.append("・初回手術日/予定日")
+        # 1. 必須項目チェック
+        if d.facility_name == "選択してください": err.append("・施設名")
+        if not d.patient_id: err.append("・識別コード")
+        if not d.op_date_90: err.append("・初回手術日/予定日")
 
-    if d.status_alive_90 is None: err.append("・生存状況")
-    if d.status_alive_90 == "死亡":
-        if d.death_cause_90 == "選択してください": err.append("・死因")
-        if not d.death_date_90: err.append("・死亡日")
+        if d.status_alive_90 is None: err.append("・生存状況")
+        if d.status_alive_90 == "死亡":
+            if d.death_cause_90 == "選択してください": err.append("・死因")
+            if not d.death_date_90: err.append("・死亡日")
 
-    # 2. 報告期間のチェック
-    if d.op_date_90 and d.final_visit_date_90:
-        days_diff = (d.final_visit_date_90 - d.op_date_90).days
-        if days_diff < 75:
-            err.append(f"・[期間不備] 手術から{days_diff}日しか経過していません（90日報告には早すぎます）")
+        # 2. 報告期間のチェック
+        if d.op_date_90 and d.final_visit_date_90:
+            days_diff = (d.final_visit_date_90 - d.op_date_90).days
+            if days_diff < 75:
+                err.append(f"・[期間不備] 手術から{days_diff}日しか経過していません（90日報告には早すぎます）")
 
-    # 3. 再発矛盾チェック
-    if d.pfs_intra_status == "あり":
-        if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
-        if d.pfs_intra_date and d.op_date_90 and d.pfs_intra_date <= d.op_date_90:
-            err.append("・[日付矛盾] 尿路内再発の診断日が初回手術日以前です")
-        if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
-            err.append("・[日付矛盾] 再発に対する手術日が初回手術日以前です")
+        # 3. 再発矛盾チェック
+        if d.pfs_intra_status == "あり":
+            if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
+            if d.pfs_intra_date and d.op_date_90 and d.pfs_intra_date <= d.op_date_90:
+                err.append("・[日付矛盾] 尿路内再発の診断日が初回手術日以前です")
+            if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
+                err.append("・[日付矛盾] 再発に対する手術日が初回手術日以前です")
 
-    # 4. 未来日付チェック
-    for date_key in ["op_date_90", "cd_date_90", "adj_start_90", "adj_end_90", "pfs_intra_date", "intra_op_date_90", "pfs_recist_date", "extra_op_date_90", "final_visit_date_90", "death_date_90"]:
-        val = d.get(date_key)
-        if val and val > today:
-            err.append(f"・[日付エラー] 未来の日付（{val}）が入力されています")
-            break
+        # 4. 未来日付チェック
+        for date_key in ["op_date_90", "cd_date_90", "adj_start_90", "adj_end_90", "pfs_intra_date", "intra_op_date_90", "pfs_recist_date", "extra_op_date_90", "final_visit_date_90", "death_date_90"]:
+            val = d.get(date_key)
+            if val and val > today:
+                err.append(f"・[日付エラー] 未来の日付（{val}）が入力されています")
+                break
 
-    if err: 
-        st.error("入力不備があります。修正してください：\n" + "\n".join(err))
-    else:
-        rep = f"""【JUOG 90D報告】
+        if err: 
+            st.error("入力不備があります。修正してください：\n" + "\n".join(err))
+        else:
+            rep = f"""【JUOG 90D報告】
 施設名: {d.facility_name} / ID: {d.patient_id}
 報告者: {d.reporter_email}
 手術日: {d.op_date_90}
@@ -335,6 +337,6 @@ if st.button("🚀 90日目データを確定送信", type="primary", use_contai
 --- 4. 生存状況 ---
 生存状況: {d.status_alive_90} (生存確認/死亡日: {d.final_visit_date_90 if d.status_alive_90=='生存' else d.death_date_90})
 """
-        if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
-            st.success("確定送信されました。事務局および報告者宛に控えメールを送信しました。")
-            st.balloons()
+            if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
+                st.success("確定送信されました。事務局および報告者宛に控えメールを送信しました。")
+                st.balloons()
