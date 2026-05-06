@@ -186,9 +186,9 @@ with tab2:
             st.session_state.ae_status = st.text_area("有害事象の詳細*", value=st.session_state.ae_status, placeholder="発現日、内容、重症度、処置、転帰などを記入", disabled=L)
             st.markdown("<div style='text-align: right;'><small>参照： <a href='https://jcog.jp/assets/CTCAEv6J_20260301_v28_0.pdf' target='_blank'>CTCAE v6.0 日本語訳 (JCOG版)</a></small></div>", unsafe_allow_html=True)
     with c2:
-        adj_opts = ["選択してください", "無治療（経過観察）", "術前からのEVP継続投与", "術前からのEV単独継続（間欠療法等を含む）", "術前からのペムブロリズマブ単剤継続", "ニボルマブ単剤（術後補助療法）", "GC療法（術後補助療法）", "GCarbo療法（術後補助療法）", "放射線治療", "治験・その他薬物療法", "その他"]
-        st.session_state.adj_plan_90 = st.selectbox("現在の治療実施状況（補助療法等）*", adj_opts, index=get_idx(adj_opts, st.session_state.adj_plan_90), disabled=L)
-        if st.session_state.adj_plan_90 not in ["選択してください", "無治療（経過観察）"]:
+        adj_opts = ["選択してください", "術後補助療法なし", "術前からのEVP継続投与", "術前からのEV単独継続（間欠療法等を含む）", "術前からのペムブロリズマブ単剤継続", "ニボルマブ単剤（術後補助療法）", "GC療法（術後補助療法）", "GCarbo療法（術後補助療法）", "放射線治療", "治験・その他薬物療法", "その他"]
+        st.session_state.adj_plan_90 = st.selectbox("術後補助療法*", adj_opts, index=get_idx(adj_opts, st.session_state.adj_plan_90), disabled=L)
+        if st.session_state.adj_plan_90 not in ["選択してください", "術後補助療法なし"]:
             if st.session_state.adj_plan_90 in ["治験・その他薬物療法", "その他"]:
                 st.session_state.adj_other_90 = st.text_input("治療の詳細*", value=st.session_state.adj_other_90, disabled=L)
             st.markdown("###### 治療日程")
@@ -252,6 +252,9 @@ with tab4:
         st.session_state.status_alive_90 = st.radio("生存状況*", ["生存", "死亡"], index=(0 if st.session_state.status_alive_90=="生存" else 1 if st.session_state.status_alive_90=="死亡" else None), horizontal=True, disabled=L)
         if st.session_state.status_alive_90 == "生存":
             st.session_state.final_visit_date_90 = st.date_input("最終生存確認日*", value=st.session_state.final_visit_date_90 if st.session_state.final_visit_date_90 else None, disabled=L)
+            # 生存時は死亡情報をリセット
+            st.session_state.death_date_90 = None
+            st.session_state.death_cause_90 = "選択してください"
     with c2:
         if st.session_state.status_alive_90 == "死亡":
             st.session_state.death_date_90 = st.date_input("死亡日*", value=st.session_state.death_date_90 if st.session_state.death_date_90 else None, disabled=L)
@@ -267,8 +270,6 @@ with tab4:
                 err.append("・[論理エラー] 生存症例に死亡日が入力されています")
             d.death_date_90 = None
             d.death_cause_90 = "選択してください"
-            st.session_state.death_date_90 = None
-            st.session_state.death_cause_90 = "選択してください"
 
         # 必須・形式チェック
         if d.facility_name == "選択してください": err.append("・施設名")
@@ -294,6 +295,59 @@ with tab4:
         if missing_input_flag: err.append("・採血検査に未入力項目があります")
         if invalid_labs: err.append(f"・[数値エラー] 0以下のあり得ない数値: {', '.join(invalid_labs)}")
 
+        # Tab2
+        if d.cd_grade_90 == "選択してください": err.append("・合併症 (Clavien-Dindo分類)")
+        elif d.cd_grade_90 != "Grade 0":
+            if not d.cd_date_90: err.append("・合併症の発現日")
+            if not d.cd_detail_90: err.append("・外科的合併症の詳細内容")
+
+        if d.has_ctcae_90 and not d.ae_status: err.append("・有害事象の詳細")
+
+        if d.adj_plan_90 == "選択してください": err.append("・術後補助療法")
+        elif d.adj_plan_90 != "術後補助療法なし":
+            if d.adj_plan_90 in ["治験・その他薬物療法", "その他"] and not d.adj_other_90: err.append("・治療の詳細")
+            if not d.adj_start_90: err.append("・治療開始日")
+            if not d.adj_ongoing_90 and not d.adj_end_90: err.append("・治療終了日")
+
+        # Tab3
+        if d.pfs_intra_status is None: err.append("・尿路内再発の有無")
+        elif d.pfs_intra_status == "あり":
+            if not d.pfs_intra_date: err.append("・尿路内再発 診断日")
+            if not d.pfs_intra_site: err.append("・尿路内再発 再発部位")
+            elif "その他" in d.pfs_intra_site and not d.pfs_intra_site_other: err.append("・尿路内再発 部位の詳細")
+            
+            if not d.pfs_intra_tx: err.append("・尿路内再発 実施した治療")
+            elif d.pfs_intra_tx_status == "実施済み・継続中":
+                if any(x in SURGERY_LIST for x in d.pfs_intra_tx):
+                    if not d.intra_op_date_90: err.append("・尿路内再発 手術日")
+                    if not d.pfs_intra_path_90: err.append("・尿路内再発 組織型等")
+                if any(x in DRUG_LIST for x in d.pfs_intra_tx):
+                    if not d.intra_tx_start_90: err.append("・尿路内再発 治療開始日")
+                    if not d.intra_tx_ongoing_90 and not d.intra_tx_end_90: err.append("・尿路内再発 治療終了日")
+            if "その他" in d.pfs_intra_tx and not d.pfs_intra_tx_other: err.append("・尿路内再発 治療の「その他」詳細")
+
+        if d.pfs_recist_status is None: err.append("・尿路外再発の有無")
+        elif d.pfs_recist_status == "あり":
+            if not d.pfs_recist_date: err.append("・尿路外再発 診断日")
+            if not d.pfs_recist_site: err.append("・尿路外再発 再発部位")
+            elif "その他" in d.pfs_recist_site and not d.pfs_recist_site_other: err.append("・尿路外再発 部位の詳細")
+            
+            if d.pfs_recist_tx == "選択してください": err.append("・尿路外再発 実施治療")
+            elif d.pfs_recist_tx_status == "実施済み・継続中":
+                if d.pfs_recist_tx == "転移巣切除" and not d.extra_op_date_90: err.append("・尿路外再発 手術日")
+                if d.pfs_recist_tx in DRUG_LIST:
+                    if not d.extra_tx_start_90: err.append("・尿路外再発 治療開始日")
+                    if not d.extra_tx_ongoing_90 and not d.extra_tx_end_90: err.append("・尿路外再発 治療終了日")
+            if d.pfs_recist_tx == "その他" and not d.pfs_recist_tx_detail: err.append("・尿路外再発 治療の詳細")
+
+        # Tab4
+        if d.status_alive_90 is None: err.append("・生存状況")
+        elif d.status_alive_90 == "生存":
+            if not d.final_visit_date_90: err.append("・最終生存確認日")
+        elif d.status_alive_90 == "死亡":
+            if not d.death_date_90: err.append("・死亡日")
+            if d.death_cause_90 == "選択してください": err.append("・死因")
+
         # 日程アルゴリズム (矛盾、未来日、30日〜90日+14日猶予のチェック)
         if d.op_date_90:
             if (today - d.op_date_90).days < 75: err.append("・[期間不備] 手術から75日未満の報告は不可です")
@@ -305,6 +359,10 @@ with tab4:
                     if diff < 0: err.append(f"・[日付矛盾] {l}が手術日より前です")
                     if diff < 30 or diff > 104: err.append(f"・[日付エラー] {l}は手術後30日〜90日（+14日猶予）以内の日付を入力してください。それ以降は次回CRFで報告してください。")
                     if val > today: err.append(f"・[日付エラー] {l}に未来日は入力不可です")
+
+        # 尿細胞診と再発の矛盾
+        if d.pfs_intra_status == "あり":
+            if d.cytology_90 == "選択してください": err.append("・[矛盾] 尿路内再発ありの場合、尿細胞診結果が必須です")
 
         if err: st.error("修正が必要な項目：\n" + "\n".join(err))
         else:
@@ -331,8 +389,8 @@ with tab4:
             if d.has_ctcae_90:
                 rep += f"\n  詳細: {d.ae_status}"
 
-            rep += f"\n\n現在の治療: {d.adj_plan_90}"
-            if d.adj_plan_90 not in ["選択してください", "無治療（経過観察）"]:
+            rep += f"\n\n術後補助療法: {d.adj_plan_90}"
+            if d.adj_plan_90 not in ["選択してください", "術後補助療法なし"]:
                 rep += f"\n  治療詳細: {d.adj_other_90}" if d.adj_plan_90 in ["治験・その他薬物療法", "その他"] else ""
                 rep += f"\n  開始日: {d.adj_start_90}"
                 rep += "\n  継続状況: 継続中" if d.adj_ongoing_90 else f"\n  終了日: {d.adj_end_90}"
