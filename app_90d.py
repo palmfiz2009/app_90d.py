@@ -128,170 +128,89 @@ with col_h2:
 
 tab1, tab2, tab3, tab4 = st.tabs(["🩺 身体所見・検査", "📋 安全性・術後補助療法", "🖼 再発評価 (PFS)", "⚖️ 生存確認 (OS)"])
 
-with tab1:
-    st.markdown('<div class="juog-header">身体所見・検査データ</div>', unsafe_allow_html=True)
-    c_top1, c_top2 = st.columns(2)
-    with c_top1:
-        st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=(0 if st.session_state.vital_abnormality_90=="異常なし" else 1 if st.session_state.vital_abnormality_90=="異常あり" else 0), horizontal=True)
-        if st.session_state.vital_abnormality_90 == "異常あり":
-            st.session_state.vital_detail_90 = st.text_input("異常の詳細*", value=st.session_state.vital_detail_90)
-    with c_top2:
-        cyto_opts = ["選択してください", "Negative (クラスI・II)", "AUC (非定型細胞)", "SHGUC (高異型度癌疑い)", "HGUC (クラスIV・V相当)", "LGUC (低異型度腫瘍)", "判定不能", "未実施"]
-        st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=get_idx(cyto_opts, st.session_state.cytology_90), help=HELP_CYTO)
+# --- フォームの開始 ---
+with st.form("crf_form"):
+    tab1, tab2, tab3, tab4 = st.tabs(["🩺 身体所見・検査", "📋 安全性・術後補助療法", "🖼 再発評価 (PFS)", "⚖️ 生存確認 (OS)"])
 
-    st.markdown("---")
-    bc1, bc2 = st.columns(2)
-    with bc1:
-        st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90)
-        st.session_state.hb_90 = st.number_input("Hb (g/dL)*", value=st.session_state.hb_90)
-        st.session_state.plt_90 = st.number_input("PLT (x10^4/μL)*", value=st.session_state.plt_90)
-        st.session_state.ast_90 = st.number_input("AST (U/L)*", value=st.session_state.ast_90)
-        st.session_state.alt_90 = st.number_input("ALT (U/L)*", value=st.session_state.alt_90)
-    with bc2:
-        st.session_state.ldh_90 = st.number_input("LDH (U/L)*", value=st.session_state.ldh_90)
-        st.session_state.alb_90 = st.number_input("Alb (g/dL)*", value=st.session_state.alb_90)
-        st.session_state.cre_90 = st.number_input("Cre (mg/dL)*", value=st.session_state.cre_90)
-        st.session_state.egfr_90 = st.number_input("eGFR (mL/min)*", value=st.session_state.egfr_90)
-        st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90)
-
-    st.markdown("**白血球分画 (%)**")
-    d1, d2, d3, d4, d5 = st.columns(5)
-    st.session_state.neutro_90 = d1.number_input("Neutro*", value=st.session_state.neutro_90)
-    st.session_state.lympho_90 = d2.number_input("Lympho*", value=st.session_state.lympho_90)
-    st.session_state.mono_90 = d3.number_input("Mono*", value=st.session_state.mono_90)
-    st.session_state.eosino_90 = d4.number_input("Eosino*", value=st.session_state.eosino_90)
-    st.session_state.baso_90 = d5.number_input("Baso*", value=st.session_state.baso_90)
-
-with tab2:
-    st.markdown('<div class="juog-header">2. 安全性評価および術後補助療法の状況</div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        cd_opts = ["選択してください", "Grade 0", "Grade I", "Grade II", "Grade IIIa", "Grade IIIb", "Grade IVa", "Grade IVb", "Grade V"]
-        st.session_state.cd_grade_90 = st.selectbox("合併症 (Clavien-Dindo分類)*", cd_opts, index=get_idx(cd_opts, st.session_state.cd_grade_90), help=HELP_CD)
-        if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
-            st.session_state.cd_date_90 = st.date_input("合併症の発現日*", value=st.session_state.cd_date_90)
-            st.session_state.cd_detail_90 = st.text_area("外科的合併症の詳細内容*", value=st.session_state.cd_detail_90)
+    with tab1:
+        st.markdown('<div class="juog-header">身体所見・検査データ</div>', unsafe_allow_html=True)
+        c_top1, c_top2 = st.columns(2)
+        with c_top1:
+            # 「未評価」を最初に入れることで勝手に選択されるのを防ぎます
+            st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["未評価", "異常なし", "異常あり"], index=get_idx(["未評価", "異常なし", "異常あり"], st.session_state.vital_abnormality_90), horizontal=True)
+            if st.session_state.vital_abnormality_90 == "異常あり":
+                st.session_state.vital_detail_90 = st.text_input("異常の詳細*", value=st.session_state.vital_detail_90)
+        with c_top2:
+            st.session_state.cytology_90 = st.selectbox("尿細胞診結果*", cyto_opts, index=get_idx(cyto_opts, st.session_state.cytology_90), help=HELP_CYTO)
 
         st.markdown("---")
-        st.session_state.has_ctcae_90 = st.checkbox("薬剤関連等の有害事象（CTCAE準拠）を報告する", value=st.session_state.has_ctcae_90)
-        if st.session_state.has_ctcae_90:
-            st.session_state.ae_status = st.text_area("有害事象の詳細*", value=st.session_state.ae_status, placeholder="発現日、内容、重症度、処置、転帰などを記入")
-            st.markdown("<div style='text-align: right;'><small>参照： <a href='https://jcog.jp/assets/CTCAEv6J_20260301_v28_0.pdf' target='_blank'>CTCAE v6.0 日本語訳 (JCOG版)</a></small></div>", unsafe_allow_html=True)
+        bc1, bc2 = st.columns(2)
+        with bc1:
+            st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90)
+            st.session_state.hb_90 = st.number_input("Hb (g/dL)*", value=st.session_state.hb_90)
+            st.session_state.plt_90 = st.number_input("PLT (x10^4/μL)*", value=st.session_state.plt_90)
+            st.session_state.ast_90 = st.number_input("AST (U/L)*", value=st.session_state.ast_90)
+            st.session_state.alt_90 = st.number_input("ALT (U/L)*", value=st.session_state.alt_90)
+        with bc2:
+            st.session_state.ldh_90 = st.number_input("LDH (U/L)*", value=st.session_state.ldh_90)
+            st.session_state.alb_90 = st.number_input("Alb (g/dL)*", value=st.session_state.alb_90)
+            st.session_state.cre_90 = st.number_input("Cre (mg/dL)*", value=st.session_state.cre_90)
+            st.session_state.egfr_90 = st.number_input("eGFR (mL/min)*", value=st.session_state.egfr_90)
+            st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90)
 
-    with c2:
-        adj_opts = ["選択してください", "無治療（経過観察）", "術前からのEVP継続投与", "術前からのEV単独継続（間欠療法等を含む）", "術前からのペムブロリズマブ単剤継続", "ニボルマブ単剤（術後補助療法）", "GC療法（術後補助療法）", "GCarbo療法（術後補助療法）", "放射線治療", "治験・その他薬物療法", "その他"]
-        st.session_state.adj_plan_90 = st.selectbox("現在の治療実施状況（補助療法等）*", adj_opts, index=get_idx(adj_opts, st.session_state.adj_plan_90))
+        st.markdown("**白血球分画 (%)**")
+        d1, d2, d3, d4, d5 = st.columns(5)
+        st.session_state.neutro_90 = d1.number_input("Neutro*", value=st.session_state.neutro_90)
+        st.session_state.lympho_90 = d2.number_input("Lympho*", value=st.session_state.lympho_90)
+        st.session_state.mono_90 = d3.number_input("Mono*", value=st.session_state.mono_90)
+        st.session_state.eosino_90 = d4.number_input("Eosino*", value=st.session_state.eosino_90)
+        st.session_state.baso_90 = d5.number_input("Baso*", value=st.session_state.baso_90)
 
-        if st.session_state.adj_plan_90 not in ["選択してください", "無治療（経過観察）"]:
-            if st.session_state.adj_plan_90 in ["治験・その他薬物療法", "その他"]:
-                st.session_state.adj_other_90 = st.text_input("治療の詳細*", value=st.session_state.adj_other_90)
+    with tab2:
+        st.markdown('<div class="juog-header">2. 安全性評価および術後補助療法の状況</div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.session_state.cd_grade_90 = st.selectbox("合併症 (Clavien-Dindo分類)*", cd_opts, index=get_idx(cd_opts, st.session_state.cd_grade_90), help=HELP_CD)
+            if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
+                st.session_state.cd_date_90 = st.date_input("合併症の発現日*", value=st.session_state.cd_date_90)
+                st.session_state.cd_detail_90 = st.text_area("外科的合併症の詳細内容*", value=st.session_state.cd_detail_90)
+            st.markdown("---")
+            st.session_state.has_ctcae_90 = st.checkbox("薬剤関連等の有害事象（CTCAE準拠）を報告する", value=st.session_state.has_ctcae_90)
+            if st.session_state.has_ctcae_90:
+                st.session_state.ae_status = st.text_area("有害事象の詳細*", value=st.session_state.ae_status, placeholder="発現日、内容、重症度、処置、転帰などを記入")
 
-            st.markdown("###### 治療日程")
-            ax1, ax2 = st.columns(2)
-            st.session_state.adj_start_90 = ax1.date_input(f"{st.session_state.adj_plan_90} 開始日*", value=st.session_state.adj_start_90, key="k_adj_start_90")
-            st.session_state.adj_ongoing_90 = ax2.checkbox("現在も継続中", value=st.session_state.adj_ongoing_90, key="k_adj_ongoing_90")
+    with tab3:
+        st.markdown('<div class="juog-header">3. 再発評価 (PFS判定)</div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**【尿路内再発】**")
+            # 「未選択」を初期状態に固定
+            st.session_state.pfs_intra_status = st.radio("尿路内再発の有無*", ["未選択", "なし", "あり"], index=get_idx(["未選択", "なし", "あり"], st.session_state.pfs_intra_status), horizontal=True)
+            if st.session_state.pfs_intra_status == "あり":
+                st.session_state.pfs_intra_date = st.date_input("診断日*", value=st.session_state.pfs_intra_date)
+                st.session_state.pfs_intra_site = st.multiselect("再発部位*", ["膀胱", "対側腎盂", "対側尿管", "同側残存尿管", "その他"], default=st.session_state.pfs_intra_site)
+        with c2:
+            st.markdown("**【尿路外再発】**")
+            st.session_state.pfs_recist_status = st.radio("尿路外再発の有無*", ["未選択", "なし", "あり"], index=get_idx(["未選択", "なし", "あり"], st.session_state.pfs_recist_status), horizontal=True)
 
-            if not st.session_state.adj_ongoing_90:
-                st.session_state.adj_end_90 = ax2.date_input(f"{st.session_state.adj_plan_90} 終了日*", value=st.session_state.adj_end_90, key="k_adj_end_90")
-            else:
-                st.session_state.adj_end_90 = None
-
-with tab3:
-    st.markdown('<div class="juog-header">3. 再発評価 (PFS判定)</div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("**【尿路内再発】**")
-        st.session_state.pfs_intra_status = st.radio("尿路内再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_intra_status=="なし" else 1 if st.session_state.pfs_intra_status=="あり" else 0), horizontal=True, key="r_intra_90")
-        if st.session_state.pfs_intra_status == "あり":
-            st.session_state.pfs_intra_date = st.date_input("診断日（組織・画像・膀胱鏡等）*", value=st.session_state.pfs_intra_date, key="d_intra_90")
-            st.session_state.pfs_intra_site = st.multiselect("再発部位*", ["膀胱", "対側腎盂", "対側尿管", "同側残存尿管", "その他"], default=st.session_state.pfs_intra_site)
-            if "その他" in st.session_state.pfs_intra_site:
-                st.session_state.pfs_intra_site_other = st.text_input("部位の詳細*", value=st.session_state.pfs_intra_site_other, key="site_intra_other")
-
-            intra_tx_opts = ["経過観察", "TURBT", "BCG注入療法", "抗がん剤注入療法", "上部尿路内視鏡的治療", "手術（腎尿管全摘等）", "その他"]
-            st.session_state.pfs_intra_tx = st.multiselect("実施した治療*", intra_tx_opts, default=st.session_state.pfs_intra_tx)
-
-            selected_intra_surgeries = [x for x in st.session_state.pfs_intra_tx if x in SURGERY_LIST]
-            if selected_intra_surgeries:
-                label_op = f"{' + '.join(selected_intra_surgeries)} 実施日*"
-                st.session_state.intra_op_date_90 = st.date_input(label_op, value=st.session_state.intra_op_date_90, key="k_i_op_90")
-                st.session_state.pfs_intra_path_90 = st.text_area("組織型、Grade、pTNM分類 等*", value=st.session_state.pfs_intra_path_90, key="k_i_path_90")
-
-            selected_intra_drugs = [x for x in st.session_state.pfs_intra_tx if x in DRUG_LIST]
-            if selected_intra_drugs:
-                label_drug = f"{' + '.join(selected_intra_drugs)}"
-                ix1, ix2 = st.columns(2)
-                st.session_state.intra_tx_start_90 = ix1.date_input(f"{label_drug} 開始日*", value=st.session_state.intra_tx_start_90, key="k_i_start_90")
-                st.session_state.intra_tx_ongoing_90 = ix2.checkbox(f"{label_drug} 継続中", value=st.session_state.intra_tx_ongoing_90, key="k_i_ongoing_90")
-                if not st.session_state.intra_tx_ongoing_90:
-                    st.session_state.intra_tx_end_90 = ix2.date_input(f"{label_drug} 終了日*", value=st.session_state.intra_tx_end_90, key="k_i_end_90")
-                else:
-                    st.session_state.intra_tx_end_90 = None
-
-            if "その他" in st.session_state.pfs_intra_tx:
-                st.session_state.pfs_intra_tx_other = st.text_input("治療の「その他」の詳細*", value=st.session_state.pfs_intra_tx_other, key="tx_intra_other")
-
-    with c2:
-        st.markdown("**【尿路外再発】**")
-        st.session_state.pfs_recist_status = st.radio("尿路外再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_recist_status=="なし" else 1 if st.session_state.pfs_recist_status=="あり" else 0), horizontal=True, key="r_extra_90")
-        if st.session_state.pfs_recist_status == "あり":
-            st.session_state.pfs_recist_date = st.date_input("診断日（画像・組織等）*", value=st.session_state.pfs_recist_date, key="d_extra_90")
-            st.session_state.pfs_recist_site = st.multiselect("再発部位*", ["肺", "リンパ節", "肝", "骨", "手術局所", "その他"], default=st.session_state.pfs_recist_site)
-            if "その他" in st.session_state.pfs_recist_site:
-                st.session_state.pfs_recist_site_other = st.text_input("部位の詳細*", value=st.session_state.pfs_recist_site_other, key="site_extra_other")
-
-            extra_tx_opts = ["選択してください", "プラチナ製剤併用療法（GC等）", "維持療法（アベルマブ等）", "EVP再開", "ペムブロリズマブ単剤", "ニボルマブ単剤", "転移巣切除", "放射線治療", "その他"]
-            st.session_state.pfs_recist_tx = st.selectbox("実施治療*", extra_tx_opts, index=get_idx(extra_tx_opts, st.session_state.pfs_recist_tx))
-
-            cur_extra_tx = st.session_state.pfs_recist_tx
-            if cur_extra_tx in ["転移巣切除"]:
-                st.session_state.extra_op_date_90 = st.date_input(f"{cur_extra_tx} 実施日*", value=st.session_state.extra_op_date_90, key="k_e_op_90")
-
-            if cur_extra_tx in DRUG_LIST:
-                ex1, ex2 = st.columns(2)
-                st.session_state.extra_tx_start_90 = ex1.date_input(f"{cur_extra_tx} 開始日*", value=st.session_state.extra_tx_start_90, key="k_e_start_90")
-                st.session_state.extra_tx_ongoing_90 = ex2.checkbox(f"{cur_extra_tx} 継続中", value=st.session_state.extra_tx_ongoing_90, key="k_e_ongoing_90")
-                if not st.session_state.extra_tx_ongoing_90:
-                    st.session_state.extra_tx_end_90 = ex2.date_input(f"{cur_extra_tx} 終了日*", value=st.session_state.extra_tx_end_90, key="k_e_end_90")
-                else:
-                    st.session_state.extra_tx_end_90 = None
-
-            if cur_extra_tx in ["その他"]:
-                st.session_state.pfs_recist_tx_detail = st.text_input("詳細*", value=st.session_state.pfs_recist_tx_detail, key="t_extra_other")
-
-with tab4:
+    with tab4:
         st.markdown('<div class="juog-header">4. 生存状況確認 (Overall Survival)</div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            # 🔴 index=0 にすることで、リストの最初にある「未選択」が初期状態になります
-            st.session_state.status_alive_90 = st.radio(
-                "生存状況*", 
-                ["未選択", "生存", "死亡"], 
-                index=get_idx(["未選択", "生存", "死亡"], st.session_state.status_alive_90), 
-                horizontal=True
-            )
+            st.session_state.status_alive_90 = st.radio("生存状況*", ["未選択", "生存", "死亡"], index=get_idx(["未選択", "生存", "死亡"], st.session_state.status_alive_90), horizontal=True)
             if st.session_state.status_alive_90 == "生存":
                 st.session_state.final_visit_date_90 = st.date_input("最終生存確認日*", value=st.session_state.final_visit_date_90)
         with c2:
             if st.session_state.status_alive_90 == "死亡":
                 st.session_state.death_date_90 = st.date_input("死亡日*", value=st.session_state.death_date_90)
-                st.session_state.death_cause_90 = st.selectbox(
-                    "死因*", 
-                    ["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], 
-                    index=get_idx(["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], st.session_state.death_cause_90)
-                )
+                st.session_state.death_cause_90 = st.selectbox("死因*", ["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], index=get_idx(["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], st.session_state.death_cause_90))
         
         st.divider()
-        # 🔴 この行が重要です。一段右に下げる（インデントを入れる）ことで st.form の中に入ります
+        # 🔴 submitted を form の内部で定義
         submitted = st.form_submit_button("🚀 90日目データを確定送信", type="primary", use_container_width=True)
 
-# ==========================================
-# 4. Main Controller (ここからは左端に寄せます)
-# ==========================================
-init_state()
-# render_ui関数の中で st.form を定義している場合、上記で返ってきた submitted を使います
+# --- フォームの外側（送信後の処理） ---
 if submitted:
-    # 🔴 ここからチェック（バリデーション）を開始します
     err = []
     d = st.session_state
     today = date.today()
@@ -300,7 +219,6 @@ if submitted:
     if d.facility_name == "選択してください": err.append("・施設名")
     if not d.patient_id: err.append("・識別コード")
     if not d.op_date_90: err.append("・初回手術日/予定日")
-    if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
     if d.status_alive_90 in [None, "未選択"]: err.append("・生存状況")
 
     # --- 2. 生存状況に応じた日付チェック ---
@@ -314,22 +232,12 @@ if submitted:
     if d.op_date_90 and d.final_visit_date_90:
         days_diff = (d.final_visit_date_90 - d.op_date_90).days
         if days_diff < 75:
-            err.append(f"・[期間不備] 手術から{days_diff}日しか経過していません")
-
-    # --- 4. 未来日付チェック ---
-    date_keys = {"op_date_90": "手術日", "cd_date_90": "合併症発現日", "adj_start_90": "補助療法開始日", "pfs_intra_date": "尿路内再発診断日", "pfs_recist_date": "尿路外再発診断日", "final_visit_date_90": "最終生存確認日", "death_date_90": "死亡日"}
-    for key, label in date_keys.items():
-        val = d.get(key)
-        if val and isinstance(val, date) and val > today:
-            err.append(f"・[未来日エラー] {label}に未来の日付が入っています")
+            err.append(f"・[期間不備] 手術から{days_diff}日しか経過していません（90日報告には早すぎます）")
 
     if err:
         st.error("⚠️ 入力不備があります。修正してください：\n\n" + "\n".join(err))
     else:
-        # データのクリーニングと送信
-        payload = build_payload(d)
-        
-        # 🔴 文言は旧版を100%維持
+        # 🔴 旧版の「しっかりした文言」をそのままレポートに適用
         rep = f"""【JUOG 90D報告】
 施設名: {d.facility_name} / ID: {d.patient_id}
 報告者: {d.reporter_email}
@@ -353,8 +261,9 @@ if submitted:
 生存状況: {d.status_alive_90} (生存確認/死亡日: {d.final_visit_date_90 if d.status_alive_90=='生存' else d.death_date_90})
 """
         if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
-            st.success("✅ 確定送信されました。")
+            st.success("✅ 確定送信されました。事務局宛に控えメールを送信しました。")
             st.balloons()
-            json_data = json.dumps(payload, ensure_ascii=False, indent=2)
-            st.download_button(label="📄 構造化データ(JSON)を保存", data=json_data, file_name=f"JUOG_90D_{d.patient_id}.json", mime="application/json")
+            
+            # JSON保存ボタンを1つだけ配置
+            json_data = json.dumps({k: str(v) for k, v in d.items()}, ensure_ascii=False, indent=2)
             st.download_button(label="📄 構造化データ(JSON)を保存", data=json_data, file_name=f"JUOG_90D_{d.patient_id}.json", mime="application/json")
