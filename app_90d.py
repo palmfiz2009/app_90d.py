@@ -9,7 +9,7 @@ import re
 # --- ページ設定 ---
 st.set_page_config(page_title="JUOG UTUC_Consolidative 90-Day CRF", layout="wide")
 
-# --- 便利関数：数値の整形（🔴バグ修正：未定義エラーの解消） ---
+# --- 便利関数：数値の整形 ---
 def f_num(val):
     if val is None or val == "":
         return "N/A"
@@ -97,13 +97,23 @@ def get_idx(options, value):
 
 def send_email(report_content, pid, facility, user_email=None):
     try:
-        mail_user = st.secrets["email"]["user"]; mail_pass = st.secrets["email"]["pass"]
+        mail_user = st.secrets["email"]["user"]
+        mail_pass = st.secrets["email"]["pass"]
         to_addrs = ["urosec@kmu.ac.jp", "yoshida.tks@kmu.ac.jp"]
-        if user_email: to_addrs.append(user_email)
-        msg = MIMEMultipart(); msg['From'] = mail_user; msg['To'] = ", ".join(to_addrs)
+        
+        # [修正1] 重複チェック（リストに無い場合のみ追加）
+        if user_email and user_email not in to_addrs:
+            to_addrs.append(user_email)
+            
+        msg = MIMEMultipart()
+        msg['From'] = mail_user
+        msg['To'] = ", ".join(to_addrs)
         msg['Subject'] = f"【JUOG 90D報告】（{facility} / ID: {pid}）"
         msg.attach(MIMEText(report_content, 'plain'))
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465); server.login(mail_user, mail_pass); server.send_message(msg); server.quit()
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login(mail_user, mail_pass)
+        server.send_message(msg)
+        server.quit()
         return True
     except Exception as e:
         st.error(f"メール送信エラー: {e}") 
@@ -176,6 +186,7 @@ with tab2:
         st.session_state.has_ctcae_90 = st.checkbox("薬剤関連等の有害事象（CTCAE準拠）を報告する", value=st.session_state.has_ctcae_90)
         if st.session_state.has_ctcae_90:
             st.session_state.ae_status = st.text_area("有害事象の詳細*", value=st.session_state.ae_status, placeholder="発現日、内容、重症度、処置、転帰などを記入")
+            # --- 修正点：CTCAEリンクの復活 ---
             st.markdown("<div style='text-align: right;'><small>参照： <a href='https://jcog.jp/assets/CTCAEv6J_20260301_v28_0.pdf' target='_blank'>CTCAE v6.0 日本語訳 (JCOG版)</a></small></div>", unsafe_allow_html=True)
 
     with c2:
@@ -305,7 +316,7 @@ with tab4:
             if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
                 err.append("・[日付矛盾] 再発に対する手術日が初回手術日以前です")
 
-        # 4. 未来日付チェック (どの項目がエラーか分かるように改善)
+        # 4. 未来日付チェック
         date_labels = {
             "op_date_90": "手術日（予定日）",
             "cd_date_90": "合併症の発現日",
@@ -318,37 +329,81 @@ with tab4:
             "final_visit_date_90": "最終生存確認日",
             "death_date_90": "死亡日"
         }
-        
         for key, label in date_labels.items():
             val = d.get(key)
             if val and val > today:
                 err.append(f"・[日付エラー] 「{label}」に未来の日付（{val}）が入力されています")
 
+        # 5. 異常値チェック (WBC, Hb, PLT, Alb, Cre は 0 以下不可)
+        invalid_labs = []
+        if d.wbc_90 is not None and d.wbc_90 <= 0: invalid_labs.append("WBC")
+        if d.hb_90 is not None and d.hb_90 <= 0: invalid_labs.append("Hb")
+        if d.plt_90 is not None and d.plt_90 <= 0: invalid_labs.append("PLT")
+        if d.alb_90 is not None and d.alb_90 <= 0: invalid_labs.append("Alb")
+        if d.cre_90 is not None and d.cre_90 <= 0: invalid_labs.append("Cre")
+        if invalid_labs:
+            err.append(f"・[数値エラー] 以下の検査値が 0 以下のあり得ない数値になっています: {', '.join(invalid_labs)}")
+
         if err: 
             st.error("入力不備があります。修正してください：\n" + "\n".join(err))
         else:
+            # メール本文(rep) を動的に生成し、詳細情報を網羅する
             rep = f"""【JUOG 90D報告】
 施設名: {d.facility_name} / ID: {d.patient_id}
 報告者: {d.reporter_email}
 手術日: {d.op_date_90}
 
 --- 1. 身体所見・検査データ ---
-身体所見の異常: {d.vital_abnormality_90} ({d.vital_detail_90})
+身体所見の異常: {d.vital_abnormality_90} {f"({d.vital_detail_90})" if d.vital_abnormality_90 == "異常あり" else ""}
 尿細胞診結果: {d.cytology_90}
-血液検査: WBC:{f_num(d.wbc_90)}, Hb:{f_num(d.hb_90)}, PLT:{f_num(d.plt_90)}, AST:{f_num(d.ast_90)}, ALT:{f_num(d.alt_90)}, LDH:{f_num(d.ldh_90)}, Alb:{f_num(d.alb_90)}, Cre:{f_num(d.cre_90)}, eGFR:{f_num(d.egfr_90)}, CRP:{f_num(d.crp_90)}
+血液検査:
+  WBC: {f_num(d.wbc_90)}, Hb: {f_num(d.hb_90)}, PLT: {f_num(d.plt_90)}
+  AST: {f_num(d.ast_90)}, ALT: {f_num(d.alt_90)}, LDH: {f_num(d.ldh_90)}
+  Alb: {f_num(d.alb_90)}, Cre: {f_num(d.cre_90)}, eGFR: {f_num(d.egfr_90)}, CRP: {f_num(d.crp_90)}
 白血球分画: Neutro {f_num(d.neutro_90)}%, Lympho {f_num(d.lympho_90)}%, Mono {f_num(d.mono_90)}%, Eosino {f_num(d.eosino_90)}%, Baso {f_num(d.baso_90)}%
 
 --- 2. 安全性評価および術後補助療法 ---
-合併症(CD): {d.cd_grade_90} (発現日: {d.cd_date_90}) / 詳細: {d.cd_detail_90}
-現在の治療: {d.adj_plan_90} / 開始日: {d.adj_start_90}
+合併症(CD): {d.cd_grade_90}"""
+            if d.cd_grade_90 not in ["選択してください", "Grade 0"]:
+                rep += f"\n  発現日: {d.cd_date_90}\n  詳細: {d.cd_detail_90}"
 
---- 3. 再発評価 ---
-尿路内再発: {d.pfs_intra_status} (診断日: {d.pfs_intra_date})
-尿路外再発: {d.pfs_recist_status} (診断日: {d.pfs_recist_date})
+            rep += f"\n\n有害事象(CTCAE): {'報告あり' if d.has_ctcae_90 else 'なし'}"
+            if d.has_ctcae_90:
+                rep += f"\n  詳細: {d.ae_status}"
 
---- 4. 生存状況 ---
-生存状況: {d.status_alive_90} (生存確認/死亡日: {d.final_visit_date_90 if d.status_alive_90=='生存' else d.death_date_90})
-"""
+            rep += f"\n\n現在の治療: {d.adj_plan_90}"
+            if d.adj_plan_90 not in ["選択してください", "無治療（経過観察）"]:
+                rep += f"\n  治療詳細: {d.adj_other_90}" if d.adj_plan_90 in ["治験・その他薬物療法", "その他"] else ""
+                rep += f"\n  開始日: {d.adj_start_90}"
+                rep += "\n  継続状況: 継続中" if d.adj_ongoing_90 else f"\n  終了日: {d.adj_end_90}"
+
+            rep += f"\n\n--- 3. 再発評価 ---\n"
+            rep += f"尿路内再発: {d.pfs_intra_status}"
+            if d.pfs_intra_status == "あり":
+                rep += f"\n  診断日: {d.pfs_intra_date}"
+                site_str = ", ".join(d.pfs_intra_site) if isinstance(d.pfs_intra_site, list) else d.pfs_intra_site
+                rep += f"\n  再発部位: {site_str} {f'({d.pfs_intra_site_other})' if 'その他' in d.pfs_intra_site else ''}"
+                tx_str = ", ".join(d.pfs_intra_tx) if isinstance(d.pfs_intra_tx, list) else d.pfs_intra_tx
+                rep += f"\n  実施治療: {tx_str} {f'({d.pfs_intra_tx_other})' if 'その他' in d.pfs_intra_tx else ''}"
+                if d.intra_op_date_90: rep += f"\n  手術日: {d.intra_op_date_90}"
+                if d.pfs_intra_path_90: rep += f"\n  病理: {d.pfs_intra_path_90}"
+
+            rep += f"\n\n尿路外再発: {d.pfs_recist_status}"
+            if d.pfs_recist_status == "あり":
+                rep += f"\n  診断日: {d.pfs_recist_date}"
+                site_str2 = ", ".join(d.pfs_recist_site) if isinstance(d.pfs_recist_site, list) else d.pfs_recist_site
+                rep += f"\n  再発部位: {site_str2} {f'({d.pfs_recist_site_other})' if 'その他' in d.pfs_recist_site else ''}"
+                rep += f"\n  実施治療: {d.pfs_recist_tx} {f'({d.pfs_recist_tx_detail})' if d.pfs_recist_tx == 'その他' else ''}"
+                if d.extra_op_date_90: rep += f"\n  手術日: {d.extra_op_date_90}"
+
+            rep += f"\n\n--- 4. 生存状況 ---\n"
+            rep += f"生存状況: {d.status_alive_90}"
+            if d.status_alive_90 == "生存":
+                rep += f"\n  最終生存確認日: {d.final_visit_date_90}"
+            elif d.status_alive_90 == "死亡":
+                rep += f"\n  死亡日: {d.death_date_90}"
+                rep += f"\n  死因: {d.death_cause_90}"
+
             if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
                 st.success("確定送信されました。事務局および報告者宛に控えメールを送信しました。")
                 st.balloons()
