@@ -9,8 +9,8 @@ import re
 # --- ページ設定 ---
 st.set_page_config(page_title="JUOG UTUC_Consolidative 90-Day CRF", layout="wide")
 
-# --- 便利関数：数値の整形 ---
-def f_num(val):
+# --- 便利関数：数値の整形（NA対応） ---
+def fmt(val):
     if val is None or val == "":
         return "N/A"
     return str(val)
@@ -87,7 +87,7 @@ if 'init_90d_perfect_v4' not in st.session_state:
         "pfs_recist_status": None, "pfs_recist_date": None, "pfs_recist_site": [], "pfs_recist_site_other": "", "pfs_recist_tx": "選択してください", "pfs_recist_tx_detail": "", "extra_op_date_90": None, "extra_tx_start_90": None, "extra_tx_end_90": None, "extra_tx_ongoing_90": False,
         "status_alive_90": None, "final_visit_date_90": None, "death_cause_90": "選択してください", "death_date_90": None
     }
-    for lab in LAB_KEYS: defaults[lab] = None
+    for lab in LAB_KEYS: defaults[lab] = ""
     for k, v in defaults.items():
         if k not in st.session_state: st.session_state[k] = v
 
@@ -101,7 +101,6 @@ def send_email(report_content, pid, facility, user_email=None):
         mail_pass = st.secrets["email"]["pass"]
         to_addrs = ["urosec@kmu.ac.jp", "yoshida.tks@kmu.ac.jp"]
         
-        # 重複チェック（リストに無い場合のみ追加し、2通送信を防ぐ）
         if user_email and user_email not in to_addrs:
             to_addrs.append(user_email)
             
@@ -129,7 +128,7 @@ with col_h1:
     st.session_state.patient_id = st.text_input("研究対象者識別コード*", value=st.session_state.patient_id)
 with col_h2:
     st.session_state.reporter_email = st.text_input("報告者メールアドレス*", value=st.session_state.reporter_email)
-    st.session_state.op_date_90 = st.date_input("手術日（非施行例は予定日）*", value=st.session_state.op_date_90)
+    st.session_state.op_date_90 = st.date_input("手術日（非施行例は予定日）*", value=st.session_state.op_date_90 if st.session_state.op_date_90 is not None else date.today())
 
     if st.session_state.op_date_90:
         min_date = st.session_state.op_date_90 + timedelta(days=30)
@@ -142,7 +141,7 @@ with tab1:
     st.markdown('<div class="juog-header">身体所見・検査データ</div>', unsafe_allow_html=True)
     c_top1, c_top2 = st.columns(2)
     with c_top1:
-        st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=(0 if st.session_state.vital_abnormality_90=="異常なし" else 1 if st.session_state.vital_abnormality_90=="異常あり" else 0), horizontal=True)
+        st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=(0 if st.session_state.vital_abnormality_90=="異常なし" else 1 if st.session_state.vital_abnormality_90=="異常あり" else None), horizontal=True)
         if st.session_state.vital_abnormality_90 == "異常あり":
             st.session_state.vital_detail_90 = st.text_input("異常の詳細*", value=st.session_state.vital_detail_90)
     with c_top2:
@@ -151,26 +150,27 @@ with tab1:
 
     st.markdown("---")
     bc1, bc2 = st.columns(2)
+    lab_help = "数値を入力。測定していない場合は NA と入力してください（空欄不可）"
     with bc1:
-        st.session_state.wbc_90 = st.number_input("WBC (/μL)*", value=st.session_state.wbc_90)
-        st.session_state.hb_90 = st.number_input("Hb (g/dL)*", value=st.session_state.hb_90)
-        st.session_state.plt_90 = st.number_input("PLT (x10^4/μL)*", value=st.session_state.plt_90)
-        st.session_state.ast_90 = st.number_input("AST (U/L)*", value=st.session_state.ast_90)
-        st.session_state.alt_90 = st.number_input("ALT (U/L)*", value=st.session_state.alt_90)
+        st.session_state.wbc_90 = st.text_input("WBC (/μL)*", value=st.session_state.wbc_90, help=lab_help)
+        st.session_state.hb_90 = st.text_input("Hb (g/dL)*", value=st.session_state.hb_90, help=lab_help)
+        st.session_state.plt_90 = st.text_input("PLT (x10^4/μL)*", value=st.session_state.plt_90, help=lab_help)
+        st.session_state.ast_90 = st.text_input("AST (U/L)*", value=st.session_state.ast_90, help=lab_help)
+        st.session_state.alt_90 = st.text_input("ALT (U/L)*", value=st.session_state.alt_90, help=lab_help)
     with bc2:
-        st.session_state.ldh_90 = st.number_input("LDH (U/L)*", value=st.session_state.ldh_90)
-        st.session_state.alb_90 = st.number_input("Alb (g/dL)*", value=st.session_state.alb_90)
-        st.session_state.cre_90 = st.number_input("Cre (mg/dL)*", value=st.session_state.cre_90)
-        st.session_state.egfr_90 = st.number_input("eGFR (mL/min)*", value=st.session_state.egfr_90)
-        st.session_state.crp_90 = st.number_input("CRP (mg/dL)*", value=st.session_state.crp_90)
+        st.session_state.ldh_90 = st.text_input("LDH (U/L)*", value=st.session_state.ldh_90, help=lab_help)
+        st.session_state.alb_90 = st.text_input("Alb (g/dL)*", value=st.session_state.alb_90, help=lab_help)
+        st.session_state.cre_90 = st.text_input("Cre (mg/dL)*", value=st.session_state.cre_90, help=lab_help)
+        st.session_state.egfr_90 = st.text_input("eGFR (mL/min)*", value=st.session_state.egfr_90, help=lab_help)
+        st.session_state.crp_90 = st.text_input("CRP (mg/dL)*", value=st.session_state.crp_90, help=lab_help)
 
-    st.markdown("**白血球分画 (%)**")
+    st.markdown("<div style='font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 5px;'>白血球分画 (%)</div>", unsafe_allow_html=True)
     d1, d2, d3, d4, d5 = st.columns(5)
-    st.session_state.neutro_90 = d1.number_input("Neutro*", value=st.session_state.neutro_90)
-    st.session_state.lympho_90 = d2.number_input("Lympho*", value=st.session_state.lympho_90)
-    st.session_state.mono_90 = d3.number_input("Mono*", value=st.session_state.mono_90)
-    st.session_state.eosino_90 = d4.number_input("Eosino*", value=st.session_state.eosino_90)
-    st.session_state.baso_90 = d5.number_input("Baso*", value=st.session_state.baso_90)
+    st.session_state.neutro_90 = d1.text_input("Neutro*", value=st.session_state.neutro_90, help=lab_help)
+    st.session_state.lympho_90 = d2.text_input("Lympho*", value=st.session_state.lympho_90, help=lab_help)
+    st.session_state.mono_90 = d3.text_input("Mono*", value=st.session_state.mono_90, help=lab_help)
+    st.session_state.eosino_90 = d4.text_input("Eosino*", value=st.session_state.eosino_90, help=lab_help)
+    st.session_state.baso_90 = d5.text_input("Baso*", value=st.session_state.baso_90, help=lab_help)
 
 with tab2:
     st.markdown('<div class="juog-header">2. 安全性評価および術後補助療法の状況</div>', unsafe_allow_html=True)
@@ -179,7 +179,7 @@ with tab2:
         cd_opts = ["選択してください", "Grade 0", "Grade I", "Grade II", "Grade IIIa", "Grade IIIb", "Grade IVa", "Grade IVb", "Grade V"]
         st.session_state.cd_grade_90 = st.selectbox("合併症 (Clavien-Dindo分類)*", cd_opts, index=get_idx(cd_opts, st.session_state.cd_grade_90), help=HELP_CD)
         if st.session_state.cd_grade_90 not in ["選択してください", "Grade 0"]:
-            st.session_state.cd_date_90 = st.date_input("合併症の発現日*", value=st.session_state.cd_date_90)
+            st.session_state.cd_date_90 = st.date_input("合併症の発現日*", value=st.session_state.cd_date_90 if st.session_state.cd_date_90 is not None else date.today())
             st.session_state.cd_detail_90 = st.text_area("外科的合併症の詳細内容*", value=st.session_state.cd_detail_90)
 
         st.markdown("---")
@@ -198,11 +198,11 @@ with tab2:
 
             st.markdown("###### 治療日程")
             ax1, ax2 = st.columns(2)
-            st.session_state.adj_start_90 = ax1.date_input(f"{st.session_state.adj_plan_90} 開始日*", value=st.session_state.adj_start_90, key="k_adj_start_90")
-            st.session_state.adj_ongoing_90 = ax2.checkbox("現在も継続中", value=st.session_state.adj_ongoing_90, key="k_adj_ongoing_90")
+            st.session_state.adj_start_90 = ax1.date_input(f"{st.session_state.adj_plan_90} 開始日*", value=st.session_state.adj_start_90 if st.session_state.adj_start_90 is not None else date.today())
+            st.session_state.adj_ongoing_90 = ax2.checkbox("現在も継続中", value=st.session_state.adj_ongoing_90)
 
             if not st.session_state.adj_ongoing_90:
-                st.session_state.adj_end_90 = ax2.date_input(f"{st.session_state.adj_plan_90} 終了日*", value=st.session_state.adj_end_90, key="k_adj_end_90")
+                st.session_state.adj_end_90 = ax2.date_input(f"{st.session_state.adj_plan_90} 終了日*", value=st.session_state.adj_end_90 if st.session_state.adj_end_90 is not None else date.today())
             else:
                 st.session_state.adj_end_90 = None
 
@@ -211,9 +211,9 @@ with tab3:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**【尿路内再発】**")
-        st.session_state.pfs_intra_status = st.radio("尿路内再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_intra_status=="なし" else 1 if st.session_state.pfs_intra_status=="あり" else 0), horizontal=True, key="r_intra_90")
+        st.session_state.pfs_intra_status = st.radio("尿路内再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_intra_status=="なし" else 1 if st.session_state.pfs_intra_status=="あり" else None), horizontal=True, key="r_intra_90")
         if st.session_state.pfs_intra_status == "あり":
-            st.session_state.pfs_intra_date = st.date_input("診断日（組織・画像・膀胱鏡等）*", value=st.session_state.pfs_intra_date, key="d_intra_90")
+            st.session_state.pfs_intra_date = st.date_input("診断日（組織・画像・膀胱鏡等）*", value=st.session_state.pfs_intra_date if st.session_state.pfs_intra_date is not None else date.today())
             st.session_state.pfs_intra_site = st.multiselect("再発部位*", ["膀胱", "対側腎盂", "対側尿管", "同側残存尿管", "その他"], default=st.session_state.pfs_intra_site)
             if "その他" in st.session_state.pfs_intra_site:
                 st.session_state.pfs_intra_site_other = st.text_input("部位の詳細*", value=st.session_state.pfs_intra_site_other, key="site_intra_other")
@@ -224,17 +224,17 @@ with tab3:
             selected_intra_surgeries = [x for x in st.session_state.pfs_intra_tx if x in SURGERY_LIST]
             if selected_intra_surgeries:
                 label_op = f"{' + '.join(selected_intra_surgeries)} 実施日*"
-                st.session_state.intra_op_date_90 = st.date_input(label_op, value=st.session_state.intra_op_date_90, key="k_i_op_90")
+                st.session_state.intra_op_date_90 = st.date_input(label_op, value=st.session_state.intra_op_date_90 if st.session_state.intra_op_date_90 is not None else date.today())
                 st.session_state.pfs_intra_path_90 = st.text_area("組織型、Grade、pTNM分類 等*", value=st.session_state.pfs_intra_path_90, key="k_i_path_90")
 
             selected_intra_drugs = [x for x in st.session_state.pfs_intra_tx if x in DRUG_LIST]
             if selected_intra_drugs:
                 label_drug = f"{' + '.join(selected_intra_drugs)}"
                 ix1, ix2 = st.columns(2)
-                st.session_state.intra_tx_start_90 = ix1.date_input(f"{label_drug} 開始日*", value=st.session_state.intra_tx_start_90, key="k_i_start_90")
-                st.session_state.intra_tx_ongoing_90 = ix2.checkbox(f"{label_drug} 継続中", value=st.session_state.intra_tx_ongoing_90, key="k_i_ongoing_90")
+                st.session_state.intra_tx_start_90 = ix1.date_input(f"{label_drug} 開始日*", value=st.session_state.intra_tx_start_90 if st.session_state.intra_tx_start_90 is not None else date.today())
+                st.session_state.intra_tx_ongoing_90 = ix2.checkbox(f"{label_drug} 継続中", value=st.session_state.intra_tx_ongoing_90)
                 if not st.session_state.intra_tx_ongoing_90:
-                    st.session_state.intra_tx_end_90 = ix2.date_input(f"{label_drug} 終了日*", value=st.session_state.intra_tx_end_90, key="k_i_end_90")
+                    st.session_state.intra_tx_end_90 = ix2.date_input(f"{label_drug} 終了日*", value=st.session_state.intra_tx_end_90 if st.session_state.intra_tx_end_90 is not None else date.today())
                 else:
                     st.session_state.intra_tx_end_90 = None
 
@@ -243,9 +243,9 @@ with tab3:
 
     with c2:
         st.markdown("**【尿路外再発】**")
-        st.session_state.pfs_recist_status = st.radio("尿路外再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_recist_status=="なし" else 1 if st.session_state.pfs_recist_status=="あり" else 0), horizontal=True, key="r_extra_90")
+        st.session_state.pfs_recist_status = st.radio("尿路外再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_recist_status=="なし" else 1 if st.session_state.pfs_recist_status=="あり" else None), horizontal=True, key="r_extra_90")
         if st.session_state.pfs_recist_status == "あり":
-            st.session_state.pfs_recist_date = st.date_input("診断日（画像・組織等）*", value=st.session_state.pfs_recist_date, key="d_extra_90")
+            st.session_state.pfs_recist_date = st.date_input("診断日（画像・組織等）*", value=st.session_state.pfs_recist_date if st.session_state.pfs_recist_date is not None else date.today())
             st.session_state.pfs_recist_site = st.multiselect("再発部位*", ["肺", "リンパ節", "肝", "骨", "手術局所", "その他"], default=st.session_state.pfs_recist_site)
             if "その他" in st.session_state.pfs_recist_site:
                 st.session_state.pfs_recist_site_other = st.text_input("部位の詳細*", value=st.session_state.pfs_recist_site_other, key="site_extra_other")
@@ -255,14 +255,14 @@ with tab3:
 
             cur_extra_tx = st.session_state.pfs_recist_tx
             if cur_extra_tx in ["転移巣切除"]:
-                st.session_state.extra_op_date_90 = st.date_input(f"{cur_extra_tx} 実施日*", value=st.session_state.extra_op_date_90, key="k_e_op_90")
+                st.session_state.extra_op_date_90 = st.date_input(f"{cur_extra_tx} 実施日*", value=st.session_state.extra_op_date_90 if st.session_state.extra_op_date_90 is not None else date.today())
 
             if cur_extra_tx in DRUG_LIST:
                 ex1, ex2 = st.columns(2)
-                st.session_state.extra_tx_start_90 = ex1.date_input(f"{cur_extra_tx} 開始日*", value=st.session_state.extra_tx_start_90, key="k_e_start_90")
-                st.session_state.extra_tx_ongoing_90 = ex2.checkbox(f"{cur_extra_tx} 継続中", value=st.session_state.extra_tx_ongoing_90, key="k_e_ongoing_90")
+                st.session_state.extra_tx_start_90 = ex1.date_input(f"{cur_extra_tx} 開始日*", value=st.session_state.extra_tx_start_90 if st.session_state.extra_tx_start_90 is not None else date.today())
+                st.session_state.extra_tx_ongoing_90 = ex2.checkbox(f"{cur_extra_tx} 継続中", value=st.session_state.extra_tx_ongoing_90)
                 if not st.session_state.extra_tx_ongoing_90:
-                    st.session_state.extra_tx_end_90 = ex2.date_input(f"{cur_extra_tx} 終了日*", value=st.session_state.extra_tx_end_90, key="k_e_end_90")
+                    st.session_state.extra_tx_end_90 = ex2.date_input(f"{cur_extra_tx} 終了日*", value=st.session_state.extra_tx_end_90 if st.session_state.extra_tx_end_90 is not None else date.today())
                 else:
                     st.session_state.extra_tx_end_90 = None
 
@@ -273,12 +273,12 @@ with tab4:
     st.markdown('<div class="juog-header">4. 生存状況確認 (Overall Survival)</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        st.session_state.status_alive_90 = st.radio("生存状況*", ["生存", "死亡"], index=(0 if st.session_state.status_alive_90=="生存" else 1 if st.session_state.status_alive_90=="死亡" else 0), horizontal=True)
+        st.session_state.status_alive_90 = st.radio("生存状況*", ["生存", "死亡"], index=(0 if st.session_state.status_alive_90=="生存" else 1 if st.session_state.status_alive_90=="死亡" else None), horizontal=True)
         if st.session_state.status_alive_90 == "生存":
-            st.session_state.final_visit_date_90 = st.date_input("最終生存確認日*", value=st.session_state.final_visit_date_90)
+            st.session_state.final_visit_date_90 = st.date_input("最終生存確認日*", value=st.session_state.final_visit_date_90 if st.session_state.final_visit_date_90 is not None else date.today())
     with c2:
         if st.session_state.status_alive_90 == "死亡":
-            st.session_state.death_date_90 = st.date_input("死亡日*", value=st.session_state.death_date_90)
+            st.session_state.death_date_90 = st.date_input("死亡日*", value=st.session_state.death_date_90 if st.session_state.death_date_90 is not None else date.today())
             st.session_state.death_cause_90 = st.selectbox("死因*", ["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], index=get_idx(["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], st.session_state.death_cause_90))
 
     st.divider()
@@ -291,7 +291,7 @@ with tab4:
         d = st.session_state
         today = date.today()
 
-        # 1. 必須項目チェック (UI上で「*」がついている全項目)
+        # 1. 必須項目チェック
         if d.facility_name == "選択してください": err.append("・施設名")
         if not d.patient_id: err.append("・研究対象者識別コード")
         
@@ -304,17 +304,38 @@ with tab4:
         if not d.op_date_90: err.append("・手術日（非施行例は予定日）")
 
         # Tab1
-        if d.vital_abnormality_90 == "異常あり" and not d.vital_detail_90: err.append("・身体所見の異常の詳細")
+        if d.vital_abnormality_90 is None: err.append("・身体所見の異常の有無")
+        elif d.vital_abnormality_90 == "異常あり" and not d.vital_detail_90: err.append("・身体所見の異常の詳細")
         if d.cytology_90 == "選択してください": err.append("・尿細胞診結果")
         
-        # 血液検査の未入力チェック（エラーにはせず、missing_labs にまとめる）
+        # 血液検査の厳格パースと未入力チェック（空欄は不可、NA許容）
         lab_labels = {"wbc_90": "WBC", "hb_90": "Hb", "plt_90": "PLT", "ast_90": "AST", "alt_90": "ALT", 
                       "ldh_90": "LDH", "alb_90": "Alb", "cre_90": "Cre", "egfr_90": "eGFR", "crp_90": "CRP",
                       "neutro_90": "Neutro", "lympho_90": "Lympho", "mono_90": "Mono", "eosino_90": "Eosino", "baso_90": "Baso"}
-        missing_labs = []
+        parsed_labs = {}
+        missing_labs_warning = []
+        invalid_labs = []
+        
         for k, label in lab_labels.items():
-            if d.get(k) is None: 
-                missing_labs.append(label)
+            val = d.get(k, "").strip().upper()
+            if val == "":
+                err.append(f"・検査値: {label} が未入力です（NA または 数値 を入力してください）")
+                parsed_labs[k] = None
+            elif val in ["NA", "N/A"]:
+                missing_labs_warning.append(label)
+                parsed_labs[k] = None
+            else:
+                try:
+                    num_val = float(val)
+                    if num_val <= 0:
+                        invalid_labs.append(label)
+                    parsed_labs[k] = num_val
+                except ValueError:
+                    err.append(f"・検査値: {label} は数値またはNAで入力してください")
+                    parsed_labs[k] = None
+
+        if invalid_labs:
+            err.append(f"・[数値エラー] 以下の検査値が 0 以下のあり得ない数値になっています: {', '.join(invalid_labs)}")
 
         # Tab2
         if d.cd_grade_90 == "選択してください": err.append("・合併症 (Clavien-Dindo分類)")
@@ -331,7 +352,8 @@ with tab4:
             if not d.adj_ongoing_90 and not d.adj_end_90: err.append("・治療終了日")
 
         # Tab3
-        if d.pfs_intra_status == "あり":
+        if d.pfs_intra_status is None: err.append("・尿路内再発の有無")
+        elif d.pfs_intra_status == "あり":
             if not d.pfs_intra_date: err.append("・尿路内再発 診断日")
             if not d.pfs_intra_site: err.append("・尿路内再発 再発部位")
             elif "その他" in d.pfs_intra_site and not d.pfs_intra_site_other: err.append("・尿路内再発 部位の詳細")
@@ -346,7 +368,8 @@ with tab4:
                     if not d.intra_tx_ongoing_90 and not d.intra_tx_end_90: err.append("・尿路内再発 治療終了日")
                 if "その他" in d.pfs_intra_tx and not d.pfs_intra_tx_other: err.append("・尿路内再発 治療の「その他」詳細")
 
-        if d.pfs_recist_status == "あり":
+        if d.pfs_recist_status is None: err.append("・尿路外再発の有無")
+        elif d.pfs_recist_status == "あり":
             if not d.pfs_recist_date: err.append("・尿路外再発 診断日")
             if not d.pfs_recist_site: err.append("・尿路外再発 再発部位")
             elif "その他" in d.pfs_recist_site and not d.pfs_recist_site_other: err.append("・尿路外再発 部位の詳細")
@@ -367,22 +390,8 @@ with tab4:
             if not d.death_date_90: err.append("・死亡日")
             if d.death_cause_90 == "選択してください": err.append("・死因")
 
-        # 2. 報告期間のチェック（75日〜104日）
-        eval_date = d.final_visit_date_90 if d.status_alive_90 == "生存" else d.death_date_90
-        if d.op_date_90 and eval_date:
-            days_diff = (eval_date - d.op_date_90).days
-            if days_diff < 75 or days_diff > 104:
-                err.append(f"・[期間不備] 評価日（{eval_date.strftime('%Y/%m/%d')}）が手術から {days_diff} 日経過時点になっています。（90日報告は 75日〜104日 の範囲である必要があります）")
-
-        # 3. 再発矛盾チェック
-        if d.pfs_intra_status == "あり":
-            if d.cytology_90 == "選択してください": err.append("・[矛盾] 尿路内再発ありの場合、尿細胞診結果が必須です")
-            if d.pfs_intra_date and d.op_date_90 and d.pfs_intra_date <= d.op_date_90:
-                err.append("・[日付矛盾] 尿路内再発の診断日が初回手術日以前です")
-            if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
-                err.append("・[日付矛盾] 再発に対する手術日が初回手術日以前です")
-
-        # 4. 未来日付チェック
+        # 2. イベント発生日のチェック（手術から30日〜104日の範囲内か。補助療法の開始日は除外）
+        events_to_check = ["cd_date_90", "pfs_intra_date", "intra_op_date_90", "pfs_recist_date", "extra_op_date_90", "final_visit_date_90", "death_date_90"]
         date_labels = {
             "op_date_90": "手術日（予定日）",
             "cd_date_90": "合併症の発現日",
@@ -395,20 +404,27 @@ with tab4:
             "final_visit_date_90": "最終生存確認日",
             "death_date_90": "死亡日"
         }
+        for key in events_to_check:
+            val = d.get(key)
+            if val and d.op_date_90:
+                event_days = (val - d.op_date_90).days
+                if event_days < 30 or event_days > 104:
+                    label = date_labels.get(key, key)
+                    err.append(f"・[日付エラー] 「{label}」が手術から {event_days} 日目になっています。（対象期間である 30日〜90日（+14日猶予）以内の日付を入力してください。それ以降のイベントは次回のCRFで報告してください）")
+
+        # 3. 再発矛盾チェック
+        if d.pfs_intra_status == "あり":
+            if d.cytology_90 == "選択してください": err.append("・[矛盾] 尿路内再発ありの場合、尿細胞診結果が必須です")
+            if d.pfs_intra_date and d.op_date_90 and d.pfs_intra_date <= d.op_date_90:
+                err.append("・[日付矛盾] 尿路内再発の診断日が初回手術日以前です")
+            if d.intra_op_date_90 and d.op_date_90 and d.intra_op_date_90 <= d.op_date_90:
+                err.append("・[日付矛盾] 再発に対する手術日が初回手術日以前です")
+
+        # 4. 未来日付チェック
         for key, label in date_labels.items():
             val = d.get(key)
             if val and val > today:
                 err.append(f"・[日付エラー] 「{label}」に未来の日付（{val}）が入力されています")
-
-        # 5. 異常値チェック (WBC, Hb, PLT, Alb, Cre は 0 以下不可)
-        invalid_labs = []
-        if d.wbc_90 is not None and d.wbc_90 <= 0: invalid_labs.append("WBC")
-        if d.hb_90 is not None and d.hb_90 <= 0: invalid_labs.append("Hb")
-        if d.plt_90 is not None and d.plt_90 <= 0: invalid_labs.append("PLT")
-        if d.alb_90 is not None and d.alb_90 <= 0: invalid_labs.append("Alb")
-        if d.cre_90 is not None and d.cre_90 <= 0: invalid_labs.append("Cre")
-        if invalid_labs:
-            err.append(f"・[数値エラー] 以下の検査値が 0 以下のあり得ない数値になっています: {', '.join(invalid_labs)}")
 
         if err: 
             st.error("入力不備があります。修正してください：\n" + "\n".join(err))
@@ -423,10 +439,10 @@ with tab4:
 身体所見の異常: {d.vital_abnormality_90} {f"({d.vital_detail_90})" if d.vital_abnormality_90 == "異常あり" else ""}
 尿細胞診結果: {d.cytology_90}
 血液検査:
-  WBC: {f_num(d.wbc_90)}, Hb: {f_num(d.hb_90)}, PLT: {f_num(d.plt_90)}
-  AST: {f_num(d.ast_90)}, ALT: {f_num(d.alt_90)}, LDH: {f_num(d.ldh_90)}
-  Alb: {f_num(d.alb_90)}, Cre: {f_num(d.cre_90)}, eGFR: {f_num(d.egfr_90)}, CRP: {f_num(d.crp_90)}
-白血球分画: Neutro {f_num(d.neutro_90)}%, Lympho {f_num(d.lympho_90)}%, Mono {f_num(d.mono_90)}%, Eosino {f_num(d.eosino_90)}%, Baso {f_num(d.baso_90)}%
+  WBC: {fmt(parsed_labs['wbc_90'])}, Hb: {fmt(parsed_labs['hb_90'])}, PLT: {fmt(parsed_labs['plt_90'])}
+  AST: {fmt(parsed_labs['ast_90'])}, ALT: {fmt(parsed_labs['alt_90'])}, LDH: {fmt(parsed_labs['ldh_90'])}
+  Alb: {fmt(parsed_labs['alb_90'])}, Cre: {fmt(parsed_labs['cre_90'])}, eGFR: {fmt(parsed_labs['egfr_90'])}, CRP: {fmt(parsed_labs['crp_90'])}
+白血球分画: Neutro {fmt(parsed_labs['neutro_90'])}%, Lympho {fmt(parsed_labs['lympho_90'])}%, Mono {fmt(parsed_labs['mono_90'])}%, Eosino {fmt(parsed_labs['eosino_90'])}%, Baso {fmt(parsed_labs['baso_90'])}%
 
 --- 2. 安全性評価および術後補助療法 ---
 合併症(CD): {d.cd_grade_90}"""
@@ -472,7 +488,6 @@ with tab4:
 
             if send_email(rep, d.patient_id, d.facility_name, d.reporter_email):
                 st.success("確定送信されました。事務局および報告者宛に控えメールを送信しました。")
-                # 未入力の血液検査値があれば警告を表示
-                if missing_labs:
-                    st.warning(f"⚠️ 以下の血液検査値が未入力（N/A）のまま送信されました: {', '.join(missing_labs)}")
+                if missing_labs_warning:
+                    st.warning(f"⚠️ 以下の血液検査値が未測定（NA）のまま送信されました: {', '.join(missing_labs_warning)}")
                 st.balloons()
