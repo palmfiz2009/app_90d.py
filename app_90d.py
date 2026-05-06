@@ -9,6 +9,12 @@ import re
 # --- ページ設定 ---
 st.set_page_config(page_title="JUOG UTUC_Consolidative 90-Day CRF", layout="wide")
 
+# --- 便利関数：数値の整形（🔴バグ修正：未定義エラーの解消） ---
+def f_num(val):
+    if val is None or val == "":
+        return "N/A"
+    return str(val)
+
 # --- JUOG専用デザインCSS ---
 st.markdown("""
     <style>
@@ -48,7 +54,6 @@ FACILITY_LIST = ["選択してください", "愛知県がんセンター", "秋
 SURGERY_LIST = ["TURBT", "上部尿路内視鏡的治療", "手術（腎尿管全摘等）", "転移巣切除"]
 DRUG_LIST = ["BCG注入療法", "抗がん剤注入療法", "プラチナ製剤併用療法（GC等）", "維持療法（アベルマブ等）", "EVP再開", "ペムブロリズマブ単剤", "ニボルマブ単剤", "放射線治療", "その他"]
 
-# フルバージョンのCD分類ヘルプテキスト
 HELP_CD = """【Clavien-Dindo分類 (術後90日評価)】
 * Grade I：正常な術後経過からの逸脱で、薬物療法、外科的治療、内視鏡的治療、IVR治療を要さないもの。（制吐剤、解熱剤、鎮痛剤、利尿剤などは含めない）
 * Grade II：制吐剤、解熱剤、鎮痛剤、利尿剤以外の薬物療法を要する。（輸血および中心静脈栄養を含む）
@@ -100,7 +105,9 @@ def send_email(report_content, pid, facility, user_email=None):
         msg.attach(MIMEText(report_content, 'plain'))
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465); server.login(mail_user, mail_pass); server.send_message(msg); server.quit()
         return True
-    except: return False
+    except Exception as e:
+        st.error(f"メール送信エラー: {e}") # 🟡バグ修正：詳細を表示
+        return False
 
 st.title("JUOG UTUC_Consolidative 術後90日目 CRF")
 
@@ -125,7 +132,8 @@ with tab1:
     st.markdown('<div class="juog-header">身体所見・検査データ</div>', unsafe_allow_html=True)
     c_top1, c_top2 = st.columns(2)
     with c_top1:
-        st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=(0 if st.session_state.vital_abnormality_90=="異常なし" else 1 if st.session_state.vital_abnormality_90=="異常あり" else None), horizontal=True)
+        # 🟡バグ修正：index=Noneによるクラッシュ回避
+        st.session_state.vital_abnormality_90 = st.radio("身体所見の異常*", ["異常なし", "異常あり"], index=(0 if st.session_state.vital_abnormality_90=="異常なし" else 1 if st.session_state.vital_abnormality_90=="異常あり" else 0), horizontal=True)
         if st.session_state.vital_abnormality_90 == "異常あり":
             st.session_state.vital_detail_90 = st.text_input("異常の詳細*", value=st.session_state.vital_detail_90)
     with c_top2:
@@ -206,7 +214,7 @@ with tab3:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**【尿路内再発】**")
-        st.session_state.pfs_intra_status = st.radio("尿路内再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_intra_status=="なし" else 1 if st.session_state.pfs_intra_status=="あり" else None), horizontal=True, key="r_intra_90")
+        st.session_state.pfs_intra_status = st.radio("尿路内再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_intra_status=="なし" else 1 if st.session_state.pfs_intra_status=="あり" else 0), horizontal=True, key="r_intra_90")
         if st.session_state.pfs_intra_status == "あり":
             st.session_state.pfs_intra_date = st.date_input("診断日（組織・画像・膀胱鏡等）*", value=st.session_state.pfs_intra_date, key="d_intra_90")
             st.session_state.pfs_intra_site = st.multiselect("再発部位*", ["膀胱", "対側腎盂", "対側尿管", "同側残存尿管", "その他"], default=st.session_state.pfs_intra_site)
@@ -238,7 +246,7 @@ with tab3:
 
     with c2:
         st.markdown("**【尿路外再発】**")
-        st.session_state.pfs_recist_status = st.radio("尿路外再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_recist_status=="なし" else 1 if st.session_state.pfs_recist_status=="あり" else None), horizontal=True, key="r_extra_90")
+        st.session_state.pfs_recist_status = st.radio("尿路外再発の有無*", ["なし", "あり"], index=(0 if st.session_state.pfs_recist_status=="なし" else 1 if st.session_state.pfs_recist_status=="あり" else 0), horizontal=True, key="r_extra_90")
         if st.session_state.pfs_recist_status == "あり":
             st.session_state.pfs_recist_date = st.date_input("診断日（画像・組織等）*", value=st.session_state.pfs_recist_date, key="d_extra_90")
             st.session_state.pfs_recist_site = st.multiselect("再発部位*", ["肺", "リンパ節", "肝", "骨", "手術局所", "その他"], default=st.session_state.pfs_recist_site)
@@ -268,7 +276,7 @@ with tab4:
     st.markdown('<div class="juog-header">4. 生存状況確認 (Overall Survival)</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        st.session_state.status_alive_90 = st.radio("生存状況*", ["生存", "死亡"], index=(0 if st.session_state.status_alive_90=="生存" else 1 if st.session_state.status_alive_90=="死亡" else None), horizontal=True)
+        st.session_state.status_alive_90 = st.radio("生存状況*", ["生存", "死亡"], index=(0 if st.session_state.status_alive_90=="生存" else 1 if st.session_state.status_alive_90=="死亡" else 0), horizontal=True)
         if st.session_state.status_alive_90 == "生存":
             st.session_state.final_visit_date_90 = st.date_input("最終生存確認日*", value=st.session_state.final_visit_date_90)
     with c2:
