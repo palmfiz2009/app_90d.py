@@ -263,24 +263,33 @@ with tab4:
         st.markdown('<div class="juog-header">4. 生存状況確認 (Overall Survival)</div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            st.session_state.status_alive_90 = st.radio("生存状況*", ["生存", "死亡"], index=(0 if st.session_state.status_alive_90=="生存" else 1 if st.session_state.status_alive_90=="死亡" else 0), horizontal=True)
+            # 🔴 index=0 にすることで、リストの最初にある「未選択」が初期状態になります
+            st.session_state.status_alive_90 = st.radio(
+                "生存状況*", 
+                ["未選択", "生存", "死亡"], 
+                index=get_idx(["未選択", "生存", "死亡"], st.session_state.status_alive_90), 
+                horizontal=True
+            )
             if st.session_state.status_alive_90 == "生存":
                 st.session_state.final_visit_date_90 = st.date_input("最終生存確認日*", value=st.session_state.final_visit_date_90)
         with c2:
             if st.session_state.status_alive_90 == "死亡":
                 st.session_state.death_date_90 = st.date_input("死亡日*", value=st.session_state.death_date_90)
-                st.session_state.death_cause_90 = st.selectbox("死因*", ["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], index=get_idx(["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], st.session_state.death_cause_90))
+                st.session_state.death_cause_90 = st.selectbox(
+                    "死因*", 
+                    ["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], 
+                    index=get_idx(["選択してください", "癌死 (原疾患による)", "治療関連死", "他病死", "不明"], st.session_state.death_cause_90)
+                )
         
-        # 🔴 ここがエラーの原因でした。段落を揃えました。
         st.divider()
-        # 送信ボタンを戻り値として返す
+        # 🔴 この行が重要です。一段右に下げる（インデントを入れる）ことで st.form の中に入ります
         submitted = st.form_submit_button("🚀 90日目データを確定送信", type="primary", use_container_width=True)
 
 # ==========================================
 # 4. Main Controller (ここからは左端に寄せます)
 # ==========================================
 init_state()
-# UIを呼び出し、ボタンの結果を代入
+# render_ui関数の中で st.form を定義している場合、上記で返ってきた submitted を使います
 if submitted:
     # 🔴 ここからチェック（バリデーション）を開始します
     err = []
@@ -347,4 +356,5 @@ if submitted:
             st.success("✅ 確定送信されました。")
             st.balloons()
             json_data = json.dumps(payload, ensure_ascii=False, indent=2)
+            st.download_button(label="📄 構造化データ(JSON)を保存", data=json_data, file_name=f"JUOG_90D_{d.patient_id}.json", mime="application/json")
             st.download_button(label="📄 構造化データ(JSON)を保存", data=json_data, file_name=f"JUOG_90D_{d.patient_id}.json", mime="application/json")
